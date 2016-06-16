@@ -1,0 +1,9 @@
+.DS_Store
+log/*.*
+*.log
+tmp/*
+*~
+*.bak
+bin
+# Ignore application configuration
+/config.yml
