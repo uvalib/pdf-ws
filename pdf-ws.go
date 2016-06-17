@@ -84,7 +84,7 @@ func pdfHandler(rw http.ResponseWriter, req *http.Request) {
 	var availability sql.NullInt64
 	var biblID int
 	var title string
-	qs := "select b.id,b.title,b.availability_policy_id from bibls b where pid=?"
+	qs := "select b.id, b.title, b.availability_policy_id from bibls b where pid=?"
 	err := db.QueryRow(qs, pid).Scan(&biblID, &title, &availability)
 	switch {
 	case err == sql.ErrNoRows:
@@ -119,10 +119,11 @@ func pdfHandler(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			logger.Printf("Unable to retreive MasterFile data for PDF generation %s: %s", pid, err.Error())
 			fmt.Fprintf(rw, "Unable to retreive MasterFile data for PDF generation: %s", err.Error())
-			return
+			continue
 		}
 		pages = append(pages, pg)
 	}
+
 	logger.Printf("%s has %d pages. Generating PDF...", pid, len(pages))
 	pdfFile, err := generatePdf(pid, pages)
 	if err != nil {
