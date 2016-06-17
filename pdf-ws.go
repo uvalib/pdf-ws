@@ -143,7 +143,61 @@ func pdfHandler(rw http.ResponseWriter, req *http.Request) {
 }
 
 /**
- * use tif or jp2k image to generate a PDF for a page
+ * Download jp2k image from fedora
+ */
+func downloadJp2(pid string) (j2kFileName string, err error) {
+	url := fmt.Sprintf("%s/%s/datastreams/content/content", viper.GetString("fedora_url"), pid)
+	logger.Printf("Downloading %s", url)
+
+	j2kFileName = fmt.Sprintf("tmp/%s.jp2", pid)
+	destFile, err := os.Create(j2kFileName)
+	if err != nil {
+		return
+	}
+	defer destFile.Close()
+
+	response, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+
+	s, err := io.Copy(destFile, response.Body)
+	if err != nil {
+		return
+	}
+
+	logger.Printf(fmt.Sprintf("Successful download size: %d", s))
+	return
+}
+
+/**
+ * See if a jp2 for the PID exists on the IIIF mount
+ */
+func getIiifJp2File(pid string) (jp2File string, err error) {
+	parts := strings.Split(pid, ":")
+	baseName := parts[1]
+	digits := strings.Split(baseName, "")
+	dirs := []string{parts[0]}
+	var buff string
+	for i, v := range digits {
+		if i > 0 && i%2 == 0 {
+			dirs = append(dirs, buff)
+			buff = ""
+		}
+		buff = buff + v
+	}
+	if len(buff) > 0 {
+		dirs = append(dirs, buff)
+	}
+
+	jp2File = fmt.Sprintf("%s/%s/%s.jp2", viper.GetString("jp2k_dir"), strings.Join(dirs, "/"), baseName)
+	_, err = os.Stat(jp2File)
+	return
+}
+
+/**
+ * use jp2 image to generate a PDF for a page
  */
 func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 	// iterate over page info and build a list of paths to
@@ -151,32 +205,35 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 	// and newer pages will have a jp2k file avialble on the iiif server
 	var pdfFiles []string
 	for _, val := range pages {
-		logger.Printf("PDF for %s", val.Filename)
-		var srcFile, outFile string
-		if strings.Contains(strings.ToLower(val.PID), "tsm:") {
-			// this is a newer masterfile that has jp2k files in iiif data dirs
-			//filePath = viper.GetString("jp2k_dir")
-			// TODO
-		} else {
-			// this is an older file. only full scale tif available in archive
-			outFile = fmt.Sprintf("tmp/%s", val.Filename)
-			outFile = strings.Replace(outFile, ".tif", ".pdf", 1)
-			bits := strings.Split(val.Filename, "_")
-			srcFile = fmt.Sprintf("%s/%s/%s[0]", viper.GetString("archive_mount"), bits[0], val.Filename)
+		logger.Printf("Generate PDF for %s", val.Filename)
+		outFile := fmt.Sprintf("tmp/%s", val.Filename)
+		outFile = strings.Replace(outFile, ".tif", ".pdf", 1)
+
+		// First, try to get a file from the IIIF server mount
+		srcFile, j2kErr := getIiifJp2File(val.PID)
+		if j2kErr != nil {
+			// Not found, try to pull it from fedora3...
+			logger.Printf("%s not found, trying fedora", srcFile)
+			srcFile, j2kErr = downloadJp2(val.PID)
+			if err != nil {
+				// Can't find anything... give up and move on
+				logger.Printf("Unable to download JP2 file for PID %s: %s", val.PID, j2kErr.Error())
+				continue
+			}
 		}
 
 		// run imagemagick to create pdf
-		if len(srcFile) > 0 {
-			cmd := "convert"
-			args := []string{srcFile, "-compress", "zip", outFile}
-			err = exec.Command(cmd, args...).Run()
-			if err != nil {
-				logger.Printf("Unable to generate PDF for %s", val.Filename)
-			} else {
-				logger.Printf("GENERATED %s", outFile)
-				pdfFiles = append(pdfFiles, outFile)
-			}
+		cmd := "convert"
+		args := []string{srcFile, "-compress", "zip", outFile}
+		err = exec.Command(cmd, args...).Run()
+		if err != nil {
+			logger.Printf("Unable to generate PDF for %s", val.Filename)
+		} else {
+			logger.Printf("GENERATED %s", outFile)
+			pdfFiles = append(pdfFiles, outFile)
 		}
+
+		break
 	}
 
 	// Now merge all of the files into 1 pdf
