@@ -83,9 +83,9 @@ func pdfHandler(rw http.ResponseWriter, req *http.Request) {
 	// Get BIBL data for the passed PID
 	var availability sql.NullInt64
 	var biblID int
-	var title, description string
-	qs := "select b.id,b.title,b.description,b.availability_policy_id from bibls b where pid=?"
-	err := db.QueryRow(qs, pid).Scan(&biblID, &title, &description, &availability)
+	var title string
+	qs := "select b.id,b.title,b.availability_policy_id from bibls b where pid=?"
+	err := db.QueryRow(qs, pid).Scan(&biblID, &title, &availability)
 	switch {
 	case err == sql.ErrNoRows:
 		logger.Printf("%s not found", pid)
