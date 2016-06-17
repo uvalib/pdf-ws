@@ -28,10 +28,11 @@ type pageInfo struct {
  * Main entry point for the web service
  */
 func main() {
-	// lf, _ := os.OpenFile("service.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
-	// defer lf.Close()
-	// logger = log.New(lf, "service: ", log.LstdFlags)
-	logger = log.New(os.Stdout, "logger: ", log.LstdFlags)
+	lf, _ := os.OpenFile("service.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+	defer lf.Close()
+	logger = log.New(lf, "service: ", log.LstdFlags)
+	// use below to log to console....
+	//logger = log.New(os.Stdout, "logger: ", log.LstdFlags)
 
 	// Load cfg
 	logger.Printf("===> pdf-ws staring up <===")
@@ -125,7 +126,7 @@ func pdfHandler(rw http.ResponseWriter, req *http.Request) {
 	logger.Printf("%s has %d pages. Generating PDF...", pid, len(pages))
 	pdfFile, err := generatePdf(pid, pages)
 	if err != nil {
-		// TODO
+		fmt.Fprintf(rw, "PDF generation failed: %s", err.Error())
 		return
 	}
 
@@ -199,12 +200,13 @@ func getIiifJp2File(pid string) (jp2File string, err error) {
 /**
  * use jp2 image to generate a PDF for a page
  */
-func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
+func generatePdf(pid string, pages []pageInfo) (pdfFile string, pdfErr error) {
 	// iterate over page info and build a list of paths to
 	// the image for that page. Older pages may only be stored on lib_content44
 	// and newer pages will have a jp2k file avialble on the iiif server
 	var pdfFiles []string
 	var jp2Files []string
+	var errors []string
 	for _, val := range pages {
 		logger.Printf("Generate PDF for %s", val.Filename)
 		outFile := fmt.Sprintf("tmp/%s", val.Filename)
@@ -216,20 +218,25 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 			// Not found, try to pull it from fedora3...
 			logger.Printf("%s not found, trying fedora", srcFile)
 			srcFile, j2kErr = downloadJp2(val.PID)
-			if err != nil {
+			if j2kErr != nil {
 				// Can't find anything... give up and move on
 				logger.Printf("Unable to download JP2 file for PID %s: %s", val.PID, j2kErr.Error())
+				errors = append(errors, fmt.Sprintf("Could not find master file image for %s", val.PID))
 				continue
 			}
 			jp2Files = append(jp2Files, srcFile)
+			logger.Printf("Found jp2 file in fedora")
+		} else {
+			logger.Printf("Found IIIF jp2 file: %s", srcFile)
 		}
 
 		// run imagemagick to create pdf
 		cmd := "convert"
 		args := []string{srcFile, "-compress", "zip", outFile}
-		err = exec.Command(cmd, args...).Run()
-		if err != nil {
+		convErr := exec.Command(cmd, args...).Run()
+		if convErr != nil {
 			logger.Printf("Unable to generate PDF for %s", val.Filename)
+			errors = append(errors, fmt.Sprintf("Could generate page PDF for %s", val.PID))
 		} else {
 			logger.Printf("GENERATED %s", outFile)
 			pdfFiles = append(pdfFiles, outFile)
@@ -237,16 +244,16 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 	}
 
 	// Now merge all of the files into 1 pdf
-	// gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=merged.pdf test.pdf test2.pdf
+	// TODO do something with any errors found in errors array
 	logger.Printf("Merging page PDFs into single PDF")
 	pdfFile = fmt.Sprintf("tmp/%s.pdf", pid)
 	outParam := fmt.Sprintf("-sOutputFile=%s", pdfFile)
 	cmd := "gs"
 	args := []string{"-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pdfwrite", outParam}
 	args = append(args, pdfFiles...)
-	err = exec.Command(cmd, args...).Run()
-	if err != nil {
-		logger.Printf("Unable to generate MERGED PDF : %s", err.Error())
+	pdfErr = exec.Command(cmd, args...).Run()
+	if pdfErr != nil {
+		logger.Printf("Unable to generate merged PDF : %s", pdfErr.Error())
 	}
 
 	// Cleanup intermediate PDFs and downloaded jp2s
