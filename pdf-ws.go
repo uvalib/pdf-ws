@@ -204,6 +204,7 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 	// the image for that page. Older pages may only be stored on lib_content44
 	// and newer pages will have a jp2k file avialble on the iiif server
 	var pdfFiles []string
+	var jp2Files []string
 	for _, val := range pages {
 		logger.Printf("Generate PDF for %s", val.Filename)
 		outFile := fmt.Sprintf("tmp/%s", val.Filename)
@@ -220,6 +221,7 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 				logger.Printf("Unable to download JP2 file for PID %s: %s", val.PID, j2kErr.Error())
 				continue
 			}
+			jp2Files = append(jp2Files, srcFile)
 		}
 
 		// run imagemagick to create pdf
@@ -232,8 +234,6 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 			logger.Printf("GENERATED %s", outFile)
 			pdfFiles = append(pdfFiles, outFile)
 		}
-
-		break
 	}
 
 	// Now merge all of the files into 1 pdf
@@ -249,7 +249,10 @@ func generatePdf(pid string, pages []pageInfo) (pdfFile string, err error) {
 		logger.Printf("Unable to generate MERGED PDF : %s", err.Error())
 	}
 
-	// Cleanup intermediate PDFs
+	// Cleanup intermediate PDFs and downloaded jp2s
 	exec.Command("rm", pdfFiles...).Run()
+	if len(jp2Files) > 0 {
+		exec.Command("rm", jp2Files...).Run()
+	}
 	return
 }
