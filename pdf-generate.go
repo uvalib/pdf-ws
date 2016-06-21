@@ -89,7 +89,6 @@ func renderAjaxPage(pid string, w http.ResponseWriter) {
 	if err != nil {
 		logger.Printf("Unable to render ajax polling page for %s: %s", pid, err.Error())
 		fmt.Fprintf(w, "Unable to render ajax polling page for %s: %s", pid, err.Error())
-		return
 	}
 }
 
