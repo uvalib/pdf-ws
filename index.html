@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+      <script>
+      $(function() {
+         // every 5 seconds, poll the status API for the PID
+         var pid="{{ .pid }}";
+         var baseUrl = window.location.href;
+         var ival = setInterval( function() {
+            console.log("Check status...")
+            $.ajax({
+               url: baseUrl+"/status",
+               complete: function( jqXHR, textStatus ) {
+                  if (textStatus == "success") {
+                     if (jqXHR.responseText=="READY") {
+                        console.log("READY")
+                        clearInterval(ival);
+                        window.location.href = baseUrl+"/download";
+                     } else if (jqXHR.responseText=="FAILED") {
+                        console.log("FAIL")
+                        $("#message").text("PDF generation failed: "+jqXHR.responseText);
+                        clearInterval(ival);
+                     }
+                  } else {
+                     console.log("FAIL other")
+                     clearInterval(ival);
+                     $("#message").text("PDF generation failed: "+jqXHR.responseText);
+                  }
+               }
+            });
+         }, 5000);
+      });
+      </script>
+   </head>
+   <body>
+      <p id="message">Generating PDF for {{ .pid }}...</p>
+   </body>
+</html>

@@ -3,5 +3,6 @@ db_user: USER
 db_pass: PASS
 db_name: tracksys3_development
 db_host: localhost:3306
+db_old_passwords: false
 jp2k_dir: /lib_content44/jp2k
 archive_mount: /lib_content44/RMDS_archive/CheckSummed_archive
