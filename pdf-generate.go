@@ -19,6 +19,13 @@ import (
 func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 	pid := params.ByName("pid")
+	pdfDestPath := fmt.Sprintf("./tmp/%s", pid)
+	if _, err := os.Stat(pdfDestPath); err == nil {
+		// path already exists; don't start another request, just treat
+		// this one is if it was successful and render the ajax page
+		renderAjaxPage(pid, w)
+		return
+	}
 
 	// Get BIBL data for the passed PID
 	var availability sql.NullInt64
@@ -64,20 +71,26 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		pages = append(pages, pg)
 	}
 
-	// Render a simple html page that will poll for status of this PDF, and download it when done
+	// kick the lengthy PDF generation off in a go routine
+	go generatePdf(pid, pages)
+
+	renderAjaxPage(pid, w)
+}
+
+/*
+ * Render a simple html page that will poll for status of this PDF, and download it when done
+ */
+func renderAjaxPage(pid string, w http.ResponseWriter) {
 	varmap := map[string]interface{}{
 		"pid": pid,
 	}
 	tmpl, _ := template.ParseFiles("index.html")
-	err = tmpl.ExecuteTemplate(w, "index.html", varmap)
+	err := tmpl.ExecuteTemplate(w, "index.html", varmap)
 	if err != nil {
-		logger.Printf("Unable to render IIIF metadata for %s: %s", pid, err.Error())
-		fmt.Fprintf(w, "Unable to render IIIF metadata: %s", err.Error())
+		logger.Printf("Unable to render ajax polling page for %s: %s", pid, err.Error())
+		fmt.Fprintf(w, "Unable to render ajax polling page for %s: %s", pid, err.Error())
 		return
 	}
-
-	// kick the lengthy PDF generation off in a go routine
-	go generatePdf(pid, pages)
 }
 
 /**
