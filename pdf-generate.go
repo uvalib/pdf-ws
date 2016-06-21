@@ -65,7 +65,6 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		err = rows.Scan(&pg.PID, &pg.Filename, &pg.Title)
 		if err != nil {
 			logger.Printf("Unable to retreive MasterFile data for PDF generation %s: %s", pid, err.Error())
-			fmt.Fprintf(w, "Unable to retreive MasterFile data for PDF generation: %s", err.Error())
 			continue
 		}
 		pages = append(pages, pg)
