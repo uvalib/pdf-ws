@@ -56,7 +56,7 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	}
 
 	// Must have availability set
-	if availability.Valid == false {
+	if availability.Valid == false && viper.GetBool("allow_unpublished") == false {
 		logger.Printf("%s not found", pid)
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s not found", pid)
