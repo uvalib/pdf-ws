@@ -19,11 +19,20 @@ import (
 func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 	pid := params.ByName("pid")
+	embedStr := r.URL.Query().Get("embed")
+	embed := true
+	if len(embedStr) == 0 || embedStr == "0" {
+		embed = false
+	}
 	pdfDestPath := fmt.Sprintf("./tmp/%s", pid)
 	if _, err := os.Stat(pdfDestPath); err == nil {
 		// path already exists; don't start another request, just treat
 		// this one is if it was successful and render the ajax page
-		renderAjaxPage(pid, w)
+		if embed {
+			fmt.Fprintf(w, "ok")
+		} else {
+			renderAjaxPage(pid, w)
+		}
 		return
 	}
 
@@ -56,7 +65,7 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 
 	// Get data for all master files from units associated with bibl
 	qs = `select m.pid, m.filename, m.title from master_files m
-         inner join units u on u.id=m.unit_id where u.bibl_id = ?`
+	      inner join units u on u.id=m.unit_id where u.bibl_id = ?`
 	rows, _ := db.Query(qs, biblID)
 	defer rows.Close()
 	var pages []pageInfo
@@ -73,7 +82,11 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	// kick the lengthy PDF generation off in a go routine
 	go generatePdf(pid, pages)
 
-	renderAjaxPage(pid, w)
+	if embed {
+		fmt.Fprintf(w, "ok")
+	} else {
+		renderAjaxPage(pid, w)
+	}
 }
 
 /*
