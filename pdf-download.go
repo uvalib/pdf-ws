@@ -32,14 +32,14 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		return
 	}
 	logger.Printf("Sending %s to client", b)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%s.pdf", pid))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.pdf", pid))
 	w.Header().Set("Content-Type", "application/pdf")
 	in, err := os.Open(string(b))
 	if err != nil {
 		return
 	}
 	defer in.Close()
-	defer os.RemoveAll(pidDir)
 	io.Copy(w, in)
 	logger.Printf("PDF for %s completed successfully", pid)
+	defer os.RemoveAll(pidDir)
 }

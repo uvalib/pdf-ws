@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -104,28 +106,54 @@ func renderAjaxPage(pid string, w http.ResponseWriter) {
 	}
 }
 
-/**
- * See if a jp2 for the PID exists on the IIIF mount
- */
-func getIiifJp2File(pid string) (jp2File string, err error) {
-	parts := strings.Split(pid, ":")
-	baseName := parts[1]
-	digits := strings.Split(baseName, "")
-	dirs := []string{parts[0]}
-	var buff string
-	for i, v := range digits {
-		if i > 0 && i%2 == 0 {
-			dirs = append(dirs, buff)
-			buff = ""
-		}
-		buff = buff + v
+func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
+	url := viper.GetString("iiif_url_template")
+	url = strings.Replace(url, "$PID", pid, 1)
+
+	logger.Printf("Downloading JPG from: %s", url)
+	response, err := http.Get(url)
+	if err != nil || response.StatusCode != 200 {
+		err = errors.New("not found")
+		return
 	}
-	if len(buff) > 0 {
-		dirs = append(dirs, buff)
+	defer response.Body.Close()
+
+	jpgFileName = fmt.Sprintf("%s/%s.jpg", outPath, pid)
+	destFile, err := os.Create(jpgFileName)
+	if err != nil {
+		return
+	}
+	defer destFile.Close()
+
+	s, err := io.Copy(destFile, response.Body)
+	if err != nil {
+		return
 	}
 
-	jp2File = fmt.Sprintf("%s/%s/%s.jp2", viper.GetString("jp2k_dir"), strings.Join(dirs, "/"), baseName)
-	_, err = os.Stat(jp2File)
+	logger.Printf(fmt.Sprintf("Successful download size: %d", s))
+	return
+}
+
+func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string, err error) {
+	jpgFileName = fmt.Sprintf("%s/%s.jpg", outPath, pid)
+	bits := strings.Split(tifFile, "_")
+	srcFile := fmt.Sprintf("%s/%s/%s", viper.GetString("archive_mount"), bits[0], tifFile)
+	logger.Printf("Using archived file as source: %s", srcFile)
+	_, err = os.Stat(srcFile)
+	if err != nil {
+		logger.Printf("ERROR %s", err.Error())
+		return
+	}
+
+	// run imagemagick to create scaled down jpg
+	cmd := "convert"
+	args := []string{fmt.Sprintf("%s[0]", srcFile), "-resize", "1024", jpgFileName}
+	convErr := exec.Command(cmd, args...).Run()
+	if convErr != nil {
+		logger.Printf("Unable to generate JPG for %s", tifFile)
+	} else {
+		logger.Printf("Generated %s", jpgFileName)
+	}
 	return
 }
 
@@ -140,65 +168,48 @@ func generatePdf(pid string, pages []pageInfo) {
 	// iterate over page info and build a list of paths to
 	// the image for that page. Older pages may only be stored on lib_content44
 	// and newer pages will have a jp2k file avialble on the iiif server
-	var pdfFiles []string
-	var jp2Files []string
-	var errors []string
+	var jpgFiles []string
 	for _, val := range pages {
-		logger.Printf("Generate PDF for %s", val.Filename)
-		outFile := fmt.Sprintf("%s/%s", outPath, val.Filename)
-		outFile = strings.Replace(outFile, ".tif", ".pdf", 1)
+		logger.Printf("Get reduced size jpg for %s %s", val.PID, val.Filename)
 
-		// First, try to get a file from the IIIF server mount
-		srcFile, j2kErr := getIiifJp2File(val.PID)
-		if j2kErr != nil {
-			bits := strings.Split(val.Filename, "_")
-			srcFile = fmt.Sprintf("%s/%s/%s[0]", viper.GetString("archive_mount"), bits[0], val.Filename)
-			logger.Printf("Using archived file as source: %s", srcFile)
-		} else {
-			logger.Printf("Found IIIF jp2 file: %s", srcFile)
+		// First, try to get a JPG file from the IIIF server mount
+		jpgFile, jpgErr := downloadJpgFromIiif(outPath, val.PID)
+		if jpgErr != nil {
+			// not found. work from the archival tif file
+			logger.Printf("No JPG found on IIIF server; using archival tif...")
+			jpgFile, jpgErr = jpgFromTif(outPath, val.PID, val.Filename)
+			if jpgErr != nil {
+				logger.Printf("Unable to find source image for masterFile %s. Skipping.", val.PID)
+				continue
+			}
 		}
-
-		// run imagemagick to create pdf
-		cmd := "convert"
-		args := []string{"-resize", "2048", srcFile, "-compress", "jpeg", outFile}
-		convErr := exec.Command(cmd, args...).Run()
-		if convErr != nil {
-			logger.Printf("Unable to generate PDF for %s", val.Filename)
-			errors = append(errors, fmt.Sprintf("Could generate page PDF for %s", val.PID))
-		} else {
-			logger.Printf("Generated %s", outFile)
-			pdfFiles = append(pdfFiles, outFile)
-		}
+		jpgFiles = append(jpgFiles, jpgFile)
 	}
 
 	// Now merge all of the files into 1 pdf
-	// TODO do something with any errors found in errors array
 	pdfFile := fmt.Sprintf("tmp/%s/%s.pdf", pid, pid)
 	logger.Printf("Merging page PDFs into single PDF %s", pdfFile)
-	outParam := fmt.Sprintf("-sOutputFile=%s", pdfFile)
-	cmd := "gs"
-	args := []string{"-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pdfwrite", outParam}
-	args = append(args, pdfFiles...)
-	pdfErr := exec.Command(cmd, args...).Run()
-	if pdfErr != nil {
-		logger.Printf("Unable to generate merged PDF : %s", pdfErr.Error())
+	cmd := "convert"
+	var args []string
+	args = append(args, jpgFiles...)
+	args = append(args, pdfFile)
+	convErr := exec.Command(cmd, args...).Run()
+	if convErr != nil {
+		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
 		defer ef.Close()
-		if _, err := ef.WriteString(pdfErr.Error()); err != nil {
-			logger.Printf("Unable to write error file : %s", pdfErr.Error())
+		if _, err := ef.WriteString(convErr.Error()); err != nil {
+			logger.Printf("Unable to write error file : %s", convErr.Error())
+		}
+	} else {
+		logger.Printf("Generated PDF : %s", pdfFile)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+		defer ef.Close()
+		if _, err := ef.WriteString(pdfFile); err != nil {
+			logger.Printf("Unable to write done file : %s", err.Error())
 		}
 	}
 
-	// Cleanup intermediate PDFs and downloaded jp2s
-	exec.Command("rm", pdfFiles...).Run()
-	if len(jp2Files) > 0 {
-		exec.Command("rm", jp2Files...).Run()
-	}
-
-	logger.Printf("Generated PDF : %s", pdfFile)
-	ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
-	defer ef.Close()
-	if _, err := ef.WriteString(pdfFile); err != nil {
-		logger.Printf("Unable to write done file : %s", pdfErr.Error())
-	}
+	// Cleanup intermediate jpgFiles
+	exec.Command("rm", jpgFiles...).Run()
 }
