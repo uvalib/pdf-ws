@@ -99,14 +99,16 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 
 func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, err error) {
 	var pg pageInfo
+	var title sql.NullString
 	qs := `select m.pid, m.filename, m.title from master_files m where pid = ?`
-	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &pg.Title)
+	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &title)
 	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
 		return
 	}
+	pg.Title = title.String
 	pages = append(pages, pg)
 	return
 }

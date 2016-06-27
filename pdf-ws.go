@@ -25,11 +25,11 @@ type pageInfo struct {
  * Main entry point for the web service
  */
 func main() {
-	// lf, _ := os.OpenFile("service.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0777)
-	// defer lf.Close()
-	// logger = log.New(lf, "service: ", log.LstdFlags)
-	// // use below to log to console....
-	logger = log.New(os.Stdout, "logger: ", log.LstdFlags)
+	lf, _ := os.OpenFile("service.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0777)
+	defer lf.Close()
+	logger = log.New(lf, "service: ", log.LstdFlags)
+	// use below to log to console....
+	//logger = log.New(os.Stdout, "logger: ", log.LstdFlags)
 
 	// Load cfg
 	logger.Printf("===> pdf-ws staring up <===")
