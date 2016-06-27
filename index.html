@@ -6,7 +6,7 @@
       $(function() {
          // every 5 seconds, poll the status API for the PID
          var pid="{{ .pid }}";
-         var baseUrl = window.location.href;
+         var baseUrl = window.location.href.split("?")[0];
          var ival = setInterval( function() {
             console.log("Check status...")
             $.ajax({
@@ -16,6 +16,7 @@
                      if (jqXHR.responseText=="READY") {
                         console.log("READY")
                         clearInterval(ival);
+                        $("#message").text("PDF Generation complete");
                         window.location.href = baseUrl+"/download";
                      } else if (jqXHR.responseText=="FAILED") {
                         console.log("FAIL")
@@ -23,7 +24,6 @@
                         clearInterval(ival);
                      }
                   } else {
-                     console.log("FAIL other")
                      clearInterval(ival);
                      $("#message").text("PDF generation failed: "+jqXHR.responseText);
                   }

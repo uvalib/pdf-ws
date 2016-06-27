@@ -9,11 +9,32 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
 )
+
+func determinePidType(pid string) (pidType string) {
+	var cnt int
+	pidType = "invalid"
+	qs := "select count(*) as cnt from bibls b where pid=?"
+	db.QueryRow(qs, pid).Scan(&cnt)
+	if cnt == 1 {
+		pidType = "bibl"
+		return
+	}
+
+	qs = "select count(*) as cnt from master_files b where pid=?"
+	db.QueryRow(qs, pid).Scan(&cnt)
+	if cnt == 1 {
+		pidType = "master_file"
+		return
+	}
+
+	return
+}
 
 /**
  * Handle a request for a PDF of page images
@@ -21,11 +42,16 @@ import (
 func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 	pid := params.ByName("pid")
+
+	// pull query string params; embed and unit
 	embedStr := r.URL.Query().Get("embed")
 	embed := true
 	if len(embedStr) == 0 || embedStr == "0" {
 		embed = false
 	}
+	unitID, _ := strconv.Atoi(r.URL.Query().Get("unit"))
+
+	// See if destination already extsts...
 	pdfDestPath := fmt.Sprintf("./tmp/%s", pid)
 	if _, err := os.Stat(pdfDestPath); err == nil {
 		// path already exists; don't start another request, just treat
@@ -38,19 +64,61 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		return
 	}
 
+	// Determine what this pid is. Fail if it can't be determined
+	pidType := determinePidType(pid)
+	logger.Printf("PID %s is a %s", pid, pidType)
+	var pages []pageInfo
+	var err error
+	if pidType == "bibl" {
+		pages, err = getBiblPages(pid, w, unitID)
+		if err != nil {
+			return
+		}
+	} else if pidType == "master_file" {
+		pages, err = getMasterFilePages(pid, w)
+		if err != nil {
+			return
+		}
+	} else {
+		logger.Printf("Unknown PID %s", pid)
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "PID %s not found", pid)
+		return
+	}
+
+	// kick the lengthy PDF generation off in a go routine
+	go generatePdf(pid, pages)
+
+	// Render a simple ok message or kick an ajax polling loop
+	if embed {
+		fmt.Fprintf(w, "ok")
+	} else {
+		renderAjaxPage(pid, w)
+	}
+}
+
+func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, err error) {
+	var pg pageInfo
+	qs := `select m.pid, m.filename, m.title from master_files m where pid = ?`
+	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &pg.Title)
+	if err != nil {
+		logger.Printf("Request failed: %s", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
+		return
+	}
+	pages = append(pages, pg)
+	return
+}
+
+func getBiblPages(pid string, w http.ResponseWriter, unitID int) (pages []pageInfo, err error) {
 	// Get BIBL data for the passed PID
 	var availability sql.NullInt64
 	var biblID int
 	var title string
 	qs := "select b.id, b.title, b.availability_policy_id from bibls b where pid=?"
-	err := db.QueryRow(qs, pid).Scan(&biblID, &title, &availability)
-	switch {
-	case err == sql.ErrNoRows:
-		logger.Printf("%s not found", pid)
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s not found", pid)
-		return
-	case err != nil:
+	err = db.QueryRow(qs, pid).Scan(&biblID, &title, &availability)
+	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
@@ -65,12 +133,16 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		return
 	}
 
-	// Get data for all master files from units associated with bibl
+	// Get data for all master files from units associated with bibl / unit
+	qsID := biblID
 	qs = `select m.pid, m.filename, m.title from master_files m
 	      inner join units u on u.id=m.unit_id where u.bibl_id = ?`
-	rows, _ := db.Query(qs, biblID)
+	if unitID > 0 {
+		qs = `select pid, filename, title from master_files where unit_id = ?`
+		qsID = unitID
+	}
+	rows, _ := db.Query(qs, qsID)
 	defer rows.Close()
-	var pages []pageInfo
 	for rows.Next() {
 		var pg pageInfo
 		err = rows.Scan(&pg.PID, &pg.Filename, &pg.Title)
@@ -80,15 +152,7 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		}
 		pages = append(pages, pg)
 	}
-
-	// kick the lengthy PDF generation off in a go routine
-	go generatePdf(pid, pages)
-
-	if embed {
-		fmt.Fprintf(w, "ok")
-	} else {
-		renderAjaxPage(pid, w)
-	}
+	return
 }
 
 /*
@@ -190,7 +254,7 @@ func generatePdf(pid string, pages []pageInfo) {
 	pdfFile := fmt.Sprintf("tmp/%s/%s.pdf", pid, pid)
 	logger.Printf("Merging page PDFs into single PDF %s", pdfFile)
 	cmd := "convert"
-	var args []string
+	args := []string{"-density", "150"}
 	args = append(args, jpgFiles...)
 	args = append(args, pdfFile)
 	convErr := exec.Command(cmd, args...).Run()
