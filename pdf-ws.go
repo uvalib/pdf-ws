@@ -15,6 +15,8 @@ import (
 var db *sql.DB
 var logger *log.Logger
 
+const version = "1.0.0"
+
 type pageInfo struct {
 	PID      string
 	Filename string
@@ -57,9 +59,9 @@ func main() {
 	// Set routes and start server
 	mux := httprouter.New()
 	mux.GET("/", rootHandler)
-	mux.GET("/pdf/:pid", pdfGenerate)
-	mux.GET("/pdf/:pid/status", statusHandler)
-	mux.GET("/pdf/:pid/download", downloadHandler)
+	mux.GET("/:pid", pdfGenerate)
+	mux.GET("/:pid/status", statusHandler)
+	mux.GET("/:pid/download", downloadHandler)
 	logger.Printf("Start service on port %s", viper.GetString("port"))
 	log.Fatal(http.ListenAndServe(":"+viper.GetString("port"), mux))
 }
@@ -69,5 +71,5 @@ func main() {
  */
 func rootHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
-	fmt.Fprintf(w, "PDF service. Usage: ./pdf/[pid]")
+	fmt.Fprintf(w, "PDF service version %s", version)
 }
