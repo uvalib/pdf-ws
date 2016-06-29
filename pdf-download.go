@@ -41,5 +41,4 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	defer in.Close()
 	io.Copy(w, in)
 	logger.Printf("PDF for %s completed successfully", pid)
-	defer os.RemoveAll(pidDir)
 }
