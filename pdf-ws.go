@@ -10,12 +10,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
+    "github.com/rs/cors"
 )
 
 var db *sql.DB
 var logger *log.Logger
 
-const version = "1.0.0"
+const version = "1.0.1"
 
 type pageInfo struct {
 	PID      string
@@ -63,7 +64,7 @@ func main() {
 	mux.GET("/:pid/status", statusHandler)
 	mux.GET("/:pid/download", downloadHandler)
 	logger.Printf("Start service on port %s", viper.GetString("port"))
-	log.Fatal(http.ListenAndServe(":"+viper.GetString("port"), mux))
+	log.Fatal(http.ListenAndServe(":"+viper.GetString("port"), cors.Default().Handler(mux)))
 }
 
 /**
