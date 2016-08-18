@@ -19,10 +19,10 @@ import (
 func determinePidType(pid string) (pidType string) {
 	var cnt int
 	pidType = "invalid"
-	qs := "select count(*) as cnt from bibls b where pid=?"
+	qs := "select count(*) as cnt from metadata b where pid=?"
 	db.QueryRow(qs, pid).Scan(&cnt)
 	if cnt == 1 {
-		pidType = "bibl"
+		pidType = "metadata"
 		return
 	}
 
@@ -69,8 +69,8 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	logger.Printf("PID %s is a %s", pid, pidType)
 	var pages []pageInfo
 	var err error
-	if pidType == "bibl" {
-		pages, err = getBiblPages(pid, w, unitID)
+	if pidType == "metadata" {
+		pages, err = getMetadataPages(pid, w, unitID)
 		if err != nil {
 			return
 		}
@@ -113,13 +113,13 @@ func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, er
 	return
 }
 
-func getBiblPages(pid string, w http.ResponseWriter, unitID int) (pages []pageInfo, err error) {
-	// Get BIBL data for the passed PID
+func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pageInfo, err error) {
+	// Get metadata for the passed PID
 	var availability sql.NullInt64
-	var biblID int
+	var metadataID int
 	var title string
-	qs := "select b.id, b.title, b.availability_policy_id from bibls b where pid=?"
-	err = db.QueryRow(qs, pid).Scan(&biblID, &title, &availability)
+	qs := "select b.id, b.title, b.availability_policy_id from metadata b where pid=?"
+	err = db.QueryRow(qs, pid).Scan(&metadataID, &title, &availability)
 	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -135,10 +135,10 @@ func getBiblPages(pid string, w http.ResponseWriter, unitID int) (pages []pageIn
 		return
 	}
 
-	// Get data for all master files from units associated with bibl / unit
-	qsID := biblID
+	// Get data for all master files from units associated with metadata / unit
+	qsID := metadataID
 	qs = `select m.pid, m.filename, m.title from master_files m
-	      inner join units u on u.id=m.unit_id where u.bibl_id = ?`
+	      inner join units u on u.id=m.unit_id where u.metadata_id = ?`
 	if unitID > 0 {
 		qs = `select pid, filename, title from master_files where unit_id = ?`
 		qsID = unitID

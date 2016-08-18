@@ -9,14 +9,14 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
+	"github.com/rs/cors"
 	"github.com/spf13/viper"
-    "github.com/rs/cors"
 )
 
 var db *sql.DB
 var logger *log.Logger
 
-const version = "1.0.1"
+const version = "1.1.0"
 
 type pageInfo struct {
 	PID      string
