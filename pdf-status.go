@@ -21,8 +21,11 @@ func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		fmt.Fprintf(w, "READY")
 		return
 	}
-	if _, err := os.Stat(fmt.Sprintf("%s/fail.txt", pidDir)); err == nil {
+	errorFile := fmt.Sprintf("%s/fail.txt", pidDir)
+	if _, err := os.Stat(errorFile); err == nil {
 		fmt.Fprintf(w, "FAILED")
+		os.Remove(errorFile)
+		os.Remove(pidDir)
 		return
 	}
 	fmt.Fprintf(w, "PROCESSING")
