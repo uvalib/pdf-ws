@@ -100,7 +100,7 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, err error) {
 	var pg pageInfo
 	var title sql.NullString
-	qs := `select m.pid, m.filename, m.title from master_files m where pid = ?`
+	qs := `select pid, filename, title from master_files where pid = ?`
 	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &title)
 	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
@@ -118,7 +118,7 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pa
 	var availability sql.NullInt64
 	var metadataID int
 	var title string
-	qs := "select b.id, b.title, b.availability_policy_id from metadata b where pid=?"
+	qs := "select id, title, availability_policy_id from metadata where pid=?"
 	err = db.QueryRow(qs, pid).Scan(&metadataID, &title, &availability)
 	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
@@ -137,8 +137,7 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pa
 
 	// Get data for all master files from units associated with metadata / unit
 	qsID := metadataID
-	qs = `select m.pid, m.filename, m.title from master_files m
-	      inner join units u on u.id=m.unit_id where u.metadata_id = ?`
+	qs = `select pid, filename, title from master_files metadata_id = ?`
 	if unitID > 0 {
 		qs = `select pid, filename, title from master_files where unit_id = ?`
 		qsID = unitID
