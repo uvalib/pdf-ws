@@ -137,7 +137,7 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pa
 
 	// Get data for all master files from units associated with metadata / unit
 	qsID := metadataID
-	qs = `select pid, filename, title from master_files metadata_id = ?`
+	qs = `select pid, filename, title from master_files where metadata_id = ?`
 	if unitID > 0 {
 		qs = `select pid, filename, title from master_files where unit_id = ?`
 		qsID = unitID
