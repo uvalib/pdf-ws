@@ -7,3 +7,6 @@ db_old_passwords: false
 jp2k_dir: /lib_content44/jp2k
 archive_mount: /lib_content44/RMDS_archive/CheckSummed_archive
 allow_unpublished: false
+https: false
+ssl_crt: cert.pem
+ssl_key: key.pem

@@ -1,3 +1,3 @@
-# PDF Web Servivce
+# PDF Web Service
 
-This is a web service to generate a PDF for multi-page bibl records
+This is a web service to generate a PDF from metadata records

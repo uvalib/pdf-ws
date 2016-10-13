@@ -64,7 +64,14 @@ func main() {
 	mux.GET("/:pid/status", statusHandler)
 	mux.GET("/:pid/download", downloadHandler)
 	logger.Printf("Start service on port %s", viper.GetString("port"))
-	log.Fatal(http.ListenAndServe(":"+viper.GetString("port"), cors.Default().Handler(mux)))
+
+	if viper.GetBool("https") == true {
+		crt := viper.GetString("ssl_crt")
+		key := viper.GetString("ssl_key")
+		log.Fatal(http.ListenAndServeTLS(":"+viper.GetString("port"), crt, key, cors.Default().Handler(mux)))
+	} else {
+		log.Fatal(http.ListenAndServe(":"+viper.GetString("port"), cors.Default().Handler(mux)))
+	}
 }
 
 /**
