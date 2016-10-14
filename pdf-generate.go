@@ -113,6 +113,11 @@ func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, er
 	return
 }
 
+// NOTE: when called from Tracksys, the unitID will be set. Honor this and generate a PDF
+// of all masterfiles in that unit regardless of published status. When called from Virgo,
+// unitID will NOT be set. Run through all units and only include those that are
+// in the DL and are publicly visible
+//
 func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pageInfo, err error) {
 	// Get metadata for the passed PID
 	var availability sql.NullInt64
@@ -137,7 +142,9 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pa
 
 	// Get data for all master files from units associated with metadata / unit
 	qsID := metadataID
-	qs = `select pid, filename, title from master_files where metadata_id = ?`
+	qs = `select m.pid, m.filename, m.title from master_files m
+         inner join units u on u.id = m.unit_id
+         where metadata_id = ? and u.include_in_dl = 1`
 	if unitID > 0 {
 		qs = `select pid, filename, title from master_files where unit_id = ?`
 		qsID = unitID
