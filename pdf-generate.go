@@ -42,6 +42,21 @@ func determinePidType(pid string) (pidType string) {
 func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 	pid := params.ByName("pid")
+	workDir := pid
+
+	// pull params for select page pdf generation; pages and token
+	pdfPages := r.URL.Query().Get("pages")
+	pdfToken := r.URL.Query().Get("token")
+	if len(pdfPages) > 0 {
+		if len(pdfToken) == 0 {
+			logger.Printf("Request for partial PDF ls missing a token")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Missing token")
+			return
+		}
+		workDir = pdfToken
+		logger.Printf("Request for partial PDF including pages: %s", pdfPages)
+	}
 
 	// pull query string params; embed and unit
 	embedStr := r.URL.Query().Get("embed")
@@ -52,14 +67,14 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	unitID, _ := strconv.Atoi(r.URL.Query().Get("unit"))
 
 	// See if destination already extsts...
-	pdfDestPath := fmt.Sprintf("./tmp/%s", pid)
+	pdfDestPath := fmt.Sprintf("./tmp/%s", workDir)
 	if _, err := os.Stat(pdfDestPath); err == nil {
 		// path already exists; don't start another request, just treat
 		// this one is if it was successful and render the ajax page
 		if embed {
 			fmt.Fprintf(w, "ok")
 		} else {
-			renderAjaxPage(pid, w)
+			renderAjaxPage(workDir, pid, w)
 		}
 		return
 	}
@@ -70,7 +85,7 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	var pages []pageInfo
 	var err error
 	if pidType == "metadata" {
-		pages, err = getMetadataPages(pid, w, unitID)
+		pages, err = getMetadataPages(pid, w, unitID, pdfPages)
 		if err != nil {
 			return
 		}
@@ -87,13 +102,13 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	}
 
 	// kick the lengthy PDF generation off in a go routine
-	go generatePdf(pid, pages)
+	go generatePdf(workDir, pid, pages)
 
 	// Render a simple ok message or kick an ajax polling loop
 	if embed {
 		fmt.Fprintf(w, "ok")
 	} else {
-		renderAjaxPage(pid, w)
+		renderAjaxPage(workDir, pid, w)
 	}
 }
 
@@ -118,8 +133,10 @@ func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, er
 // unitID will NOT be set. Run through all units and only include those that are
 // in the DL and are publicly visible
 //
-func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pageInfo, err error) {
+func getMetadataPages(pid string, w http.ResponseWriter, unitID int, pdfPages string) (pages []pageInfo, err error) {
 	// Get metadata for the passed PID
+	logger.Printf("Get Metadata pages params: PID: %s, Unit %d, Pages: %s", pid, unitID, pdfPages)
+
 	var availability sql.NullInt64
 	var metadataID int
 	var title string
@@ -141,23 +158,46 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pa
 	}
 
 	// Get data for all master files from units associated with metadata / unit
-	qsID := metadataID
-	qs = `select m.pid, m.filename, m.title from master_files m
+	queryParams := []interface{}{metadataID}
+	qs = `select m.id, m.pid, m.filename, m.title from master_files m
          inner join units u on u.id = m.unit_id
-         where metadata_id = ? and u.include_in_dl = 1`
+         where m.metadata_id = ? and u.include_in_dl = 1`
 	if unitID > 0 {
-		qs = `select pid, filename, title from master_files where unit_id = ?`
-		qsID = unitID
+		qs = `select m.id, m.pid, m.filename, m.title from master_files m where unit_id = ?`
+		queryParams = []interface{}{unitID}
 	}
-	rows, _ := db.Query(qs, qsID)
+
+	// Filter to only pids requested?
+	if len(pdfPages) > 0 {
+		idStr := strings.Split(pdfPages, ",")
+		for _, val := range idStr {
+			id, invalid := strconv.Atoi(val)
+			if invalid == nil {
+				queryParams = append(queryParams, id)
+			}
+		}
+		qs = qs + " and m.id in (?" + strings.Repeat(",?", len(idStr)-1) + ")"
+	}
+
+	logger.Printf("Query: %s, Params: %s", qs, queryParams)
+	rows, err := db.Query(qs, queryParams...)
 	defer rows.Close()
+	if err != nil {
+		logger.Printf("Request failed: %s", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
+		return
+	}
+
 	for rows.Next() {
 		var pg pageInfo
-		err = rows.Scan(&pg.PID, &pg.Filename, &pg.Title)
+		var mfID int
+		err = rows.Scan(&mfID, &pg.PID, &pg.Filename, &pg.Title)
 		if err != nil {
 			logger.Printf("Unable to retreive MasterFile data for PDF generation %s: %s", pid, err.Error())
 			continue
 		}
+
 		pages = append(pages, pg)
 	}
 	return
@@ -166,9 +206,10 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int) (pages []pa
 /*
  * Render a simple html page that will poll for status of this PDF, and download it when done
  */
-func renderAjaxPage(pid string, w http.ResponseWriter) {
+func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 	varmap := map[string]interface{}{
-		"pid": pid,
+		"pid":   pid,
+		"token": workDir,
 	}
 	tmpl, _ := template.ParseFiles("index.html")
 	err := tmpl.ExecuteTemplate(w, "index.html", varmap)
@@ -232,9 +273,9 @@ func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string,
 /**
  * use jp2 or archived tif files to generate a multipage PDF for a PID
  */
-func generatePdf(pid string, pages []pageInfo) {
+func generatePdf(workDir string, pid string, pages []pageInfo) {
 	// Make sure the work directory exists
-	outPath := fmt.Sprintf("./tmp/%s", pid)
+	outPath := fmt.Sprintf("./tmp/%s", workDir)
 	os.MkdirAll(outPath, 0777)
 
 	// iterate over page info and build a list of paths to
@@ -259,7 +300,7 @@ func generatePdf(pid string, pages []pageInfo) {
 	}
 
 	// Now merge all of the files into 1 pdf
-	pdfFile := fmt.Sprintf("tmp/%s/%s.pdf", pid, pid)
+	pdfFile := fmt.Sprintf("tmp/%s/%s.pdf", workDir, pid)
 	logger.Printf("Merging page PDFs into single PDF %s", pdfFile)
 	cmd := "convert"
 	args := []string{"-density", "150"}

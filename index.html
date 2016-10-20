@@ -5,19 +5,26 @@
       <script>
       $(function() {
          // every 5 seconds, poll the status API for the PID
+         var token="{{ .token }}";
          var pid="{{ .pid }}";
          var baseUrl = window.location.href.split("?")[0];
+         var statusUrl = baseUrl+"/status";
+         var downloadUrl = baseUrl+"/download";
+         if ( token !=  pid ) {
+            statusUrl += "?token="+token;
+            downloadUrl += "?token="+token;
+         }
          var ival = setInterval( function() {
             console.log("Check status...")
             $.ajax({
-               url: baseUrl+"/status",
+               url: statusUrl,
                complete: function( jqXHR, textStatus ) {
                   if (textStatus == "success") {
                      if (jqXHR.responseText=="READY") {
                         console.log("READY")
                         clearInterval(ival);
                         $("#message").text("PDF Generation complete");
-                        window.location.href = baseUrl+"/download";
+                        window.location.href = downloadUrl;
                      } else if (jqXHR.responseText=="FAILED") {
                         console.log("FAIL")
                         $("#message").text("PDF generation failed: "+jqXHR.responseText);
