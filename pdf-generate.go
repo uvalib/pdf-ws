@@ -43,6 +43,12 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 	pid := params.ByName("pid")
 	workDir := pid
+	unitID, _ := strconv.Atoi(r.URL.Query().Get("unit"))
+	if unitID > 0 {
+		// if pages from a specific unit are requested, put them
+		// in a unit sibdirectory under the metadata pid
+		workDir = fmt.Sprintf("%s/%d", pid, unitID)
+	}
 
 	// pull params for select page pdf generation; pages and token
 	pdfPages := r.URL.Query().Get("pages")
@@ -64,7 +70,6 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	if len(embedStr) == 0 || embedStr == "0" {
 		embed = false
 	}
-	unitID, _ := strconv.Atoi(r.URL.Query().Get("unit"))
 
 	// See if destination already extsts...
 	pdfDestPath := fmt.Sprintf("./tmp/%s", workDir)
