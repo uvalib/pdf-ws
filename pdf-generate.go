@@ -120,16 +120,31 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, err error) {
 	var pg pageInfo
 	var title sql.NullString
-	qs := `select pid, filename, title from master_files where pid = ?`
-	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &title)
+	var origID sql.NullInt64
+	qs := `select pid, filename, title, original_mf_id from master_files where pid = ?`
+	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &title, &origID)
 	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
 		return
 	}
+
+	// if this is a clone, grab the info for the original
+	if origID.Valid {
+		qs := `select pid, filename, title from master_files where id = ?`
+		err = db.QueryRow(qs, origID.Int64).Scan(&pg.PID, &pg.Filename, &title)
+		if err != nil {
+			logger.Printf("Request failed: %s", err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
+			return
+		}
+	}
+
 	pg.Title = title.String
 	pages = append(pages, pg)
+
 	return
 }
 
@@ -163,47 +178,66 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int, pdfPages st
 	}
 
 	// Get data for all master files from units associated with metadata / unit
-	queryParams := []interface{}{metadataID}
-	qs = `select m.id, m.pid, m.filename, m.title from master_files m
-         inner join units u on u.id = m.unit_id
-         where m.metadata_id = ? and u.include_in_dl = 1`
-	if unitID > 0 {
-		qs = `select m.id, m.pid, m.filename, m.title from master_files m where unit_id = ?`
-		queryParams = []interface{}{unitID}
-	}
-
-	// Filter to only pids requested?
-	if len(pdfPages) > 0 {
-		idStr := strings.Split(pdfPages, ",")
-		for _, val := range idStr {
-			id, invalid := strconv.Atoi(val)
-			if invalid == nil {
-				queryParams = append(queryParams, id)
+	// Do this in two passes, once for orignal master files and once for clones
+	for i := 0; i < 2; i++ {
+		queryParams := []interface{}{metadataID}
+		if i == 0 {
+			// Non-cloned master files
+			qs = `select m.id, m.pid, m.filename, m.title from master_files m
+               inner join units u on u.id = m.unit_id
+               where m.metadata_id = ? and u.include_in_dl = 1 and m.original_mf_id is null`
+			if unitID > 0 {
+				qs = `select m.id, m.pid, m.filename, m.title from master_files m
+                  where unit_id = ? and m.original_mf_id is null`
+				queryParams = []interface{}{unitID}
+			}
+		} else {
+			// Cloned master files
+			qs = `select om.id, om.pid, om.filename, om.title from master_files m
+			      inner join master_files om on om.id = m.original_mf_id
+               inner join units u on u.id = m.unit_id
+			      where m.metadata_id = ? and u.include_in_dl = 1 and m.original_mf_id is not null`
+			if unitID > 0 {
+				qs = `select om.id, om.pid, om.filename, om.title from master_files m
+   			      inner join master_files om on om.id = m.original_mf_id
+   			      where m.unit_id = ? and m.original_mf_id is not null`
+				queryParams = []interface{}{unitID}
 			}
 		}
-		qs = qs + " and m.id in (?" + strings.Repeat(",?", len(idStr)-1) + ")"
-	}
 
-	logger.Printf("Query: %s, Params: %s", qs, queryParams)
-	rows, err := db.Query(qs, queryParams...)
-	defer rows.Close()
-	if err != nil {
-		logger.Printf("Request failed: %s", err.Error())
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
-		return
-	}
-
-	for rows.Next() {
-		var pg pageInfo
-		var mfID int
-		err = rows.Scan(&mfID, &pg.PID, &pg.Filename, &pg.Title)
-		if err != nil {
-			logger.Printf("Unable to retreive MasterFile data for PDF generation %s: %s", pid, err.Error())
-			continue
+		// Filter to only pids requested?
+		if len(pdfPages) > 0 {
+			idStr := strings.Split(pdfPages, ",")
+			for _, val := range idStr {
+				id, invalid := strconv.Atoi(val)
+				if invalid == nil {
+					queryParams = append(queryParams, id)
+				}
+			}
+			qs = qs + " and m.id in (?" + strings.Repeat(",?", len(idStr)-1) + ")"
 		}
 
-		pages = append(pages, pg)
+		logger.Printf("Query: %s, Params: %s", qs, queryParams)
+		rows, queryErr := db.Query(qs, queryParams...)
+		defer rows.Close()
+		if queryErr != nil {
+			logger.Printf("Request failed: %s", queryErr.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Unable to PDF: %s", queryErr.Error())
+			return
+		}
+
+		for rows.Next() {
+			var pg pageInfo
+			var mfID int
+			err = rows.Scan(&mfID, &pg.PID, &pg.Filename, &pg.Title)
+			if err != nil {
+				logger.Printf("Unable to retreive MasterFile data for PDF generation %s: %s", pid, err.Error())
+				continue
+			}
+
+			pages = append(pages, pg)
+		}
 	}
 	return
 }
