@@ -119,10 +119,9 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 
 func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, err error) {
 	var pg pageInfo
-	var title sql.NullString
 	var origID sql.NullInt64
 	qs := `select pid, filename, title, original_mf_id from master_files where pid = ?`
-	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &title, &origID)
+	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &pg.Title, &origID)
 	if err != nil {
 		logger.Printf("Request failed: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -133,7 +132,7 @@ func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, er
 	// if this is a clone, grab the info for the original
 	if origID.Valid {
 		qs := `select pid, filename, title from master_files where id = ?`
-		err = db.QueryRow(qs, origID.Int64).Scan(&pg.PID, &pg.Filename, &title)
+		err = db.QueryRow(qs, origID.Int64).Scan(&pg.PID, &pg.Filename, &pg.Title)
 		if err != nil {
 			logger.Printf("Request failed: %s", err.Error())
 			w.WriteHeader(http.StatusBadRequest)
@@ -142,7 +141,6 @@ func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, er
 		}
 	}
 
-	pg.Title = title.String
 	pages = append(pages, pg)
 
 	return

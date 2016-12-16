@@ -16,12 +16,12 @@ import (
 var db *sql.DB
 var logger *log.Logger
 
-const version = "1.5.0"
+const version = "1.5.1"
 
 type pageInfo struct {
 	PID      string
 	Filename string
-	Title    string
+	Title    sql.NullString
 }
 
 /**
