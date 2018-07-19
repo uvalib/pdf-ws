@@ -336,6 +336,18 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 		jpgFiles = append(jpgFiles, jpgFile)
 	}
 
+	// check if we have any jpg files to process
+
+	if len(jpgFiles) == 0 {
+		logger.Printf("No jpg files to process")
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+		defer ef.Close()
+		if _, err := ef.WriteString("No jpg files to process"); err != nil {
+			logger.Printf("Unable to write error file : %s", err.Error())
+		}
+		return
+	}
+
 	// Now merge all of the files into 1 pdf
 	pdfFile := fmt.Sprintf("tmp/%s/%s.pdf", workDir, pid)
 	logger.Printf("Merging page PDFs into single PDF %s", pdfFile)
@@ -349,7 +361,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
 		defer ef.Close()
 		if _, err := ef.WriteString(convErr.Error()); err != nil {
-			logger.Printf("Unable to write error file : %s", convErr.Error())
+			logger.Printf("Unable to write error file : %s", err.Error())
 		}
 	} else {
 		logger.Printf("Generated PDF : %s", pdfFile)
