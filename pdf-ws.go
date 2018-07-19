@@ -63,6 +63,7 @@ func main() {
 	mux.GET("/:pid", pdfGenerate)
 	mux.GET("/:pid/status", statusHandler)
 	mux.GET("/:pid/download", downloadHandler)
+	mux.GET("/:pid/delete", deleteHandler)
 	logger.Printf("Start service on port %s", viper.GetString("port"))
 
 	if viper.GetBool("https") == true {
