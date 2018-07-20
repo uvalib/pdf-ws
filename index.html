@@ -29,6 +29,10 @@
                         console.log("FAIL")
                         $("#message").text("PDF generation failed: "+jqXHR.responseText);
                         clearInterval(ival);
+                     } else {
+                        if (/^\d+%$/.test(jqXHR.responseText)) {
+                          $("#message").text("Generating PDF for {{ .pid }} (" + jqXHR.responseText + ")...");
+                        }
                      }
                   } else {
                      clearInterval(ival);

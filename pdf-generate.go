@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"bufio"
 	"io"
 	"net/http"
 	"os"
@@ -307,6 +308,21 @@ func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string,
 	return
 }
 
+func updateProgress(outPath string, step int, steps int) {
+	logger.Printf("%d%% (step %d of %d)",(100*step)/steps,step,steps)
+
+	f, _ := os.OpenFile(fmt.Sprintf("%s/progress.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+
+	if _, err := fmt.Fprintf(w,"%d%%",(100*step)/steps); err != nil {
+		logger.Printf("Unable to write progress file : %s", err.Error())
+	}
+
+	w.Flush()
+}
+
 /**
  * use jp2 or archived tif files to generate a multipage PDF for a PID
  */
@@ -315,12 +331,22 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	outPath := fmt.Sprintf("./tmp/%s", workDir)
 	os.MkdirAll(outPath, 0777)
 
+	// initialize progress reporting:
+	// steps include each page download, plus a final conversion step
+	// future enhancement: each page download, plus each page as processed by imagemagick (convert -monitor)
+
+	var steps = len(pages) + 1
+	var step = 0
+
 	// iterate over page info and build a list of paths to
 	// the image for that page. Older pages may only be stored on lib_content44
 	// and newer pages will have a jp2k file avialble on the iiif server
 	var jpgFiles []string
 	for _, val := range pages {
 		logger.Printf("Get reduced size jpg for %s %s", val.PID, val.Filename)
+
+		step++
+		updateProgress(outPath,step,steps)
 
 		// First, try to get a JPG file from the IIIF server mount
 		jpgFile, jpgErr := downloadJpgFromIiif(outPath, val.PID)
@@ -371,6 +397,9 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 			logger.Printf("Unable to write done file : %s", err.Error())
 		}
 	}
+
+	step++
+	updateProgress(outPath,step,steps)
 
 	// Cleanup intermediate jpgFiles
 	exec.Command("rm", jpgFiles...).Run()
