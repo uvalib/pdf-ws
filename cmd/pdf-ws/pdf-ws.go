@@ -16,7 +16,7 @@ import (
 var db *sql.DB
 var logger *log.Logger
 
-const version = "1.5.1"
+const version = "1.6"
 
 type pageInfo struct {
 	PID      string
