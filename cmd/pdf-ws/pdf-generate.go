@@ -231,7 +231,7 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int, pdfPages st
 			var mfID int
 			err = rows.Scan(&mfID, &pg.PID, &pg.Filename, &pg.Title)
 			if err != nil {
-				logger.Printf("Unable to retreive MasterFile data for PDF generation %s: %s", pid, err.Error())
+				logger.Printf("Unable to retrieve MasterFile data for PDF generation %s: %s", pid, err.Error())
 				continue
 			}
 
