@@ -14,33 +14,33 @@
             statusUrl += "?token="+token;
             downloadUrl += "?token="+token;
          }
-         var ival = setInterval( function() {
-            console.log("Check status...")
+         (function pdfStatus() {
+            console.log("Check status...");
             $.ajax({
                url: statusUrl,
-               complete: function( jqXHR, textStatus ) {
+               complete: function(jqXHR, textStatus) {
                   if (textStatus == "success") {
-                     if (jqXHR.responseText=="READY") {
-                        console.log("READY")
-                        clearInterval(ival);
+                     if (jqXHR.responseText == "READY") {
+                        console.log("READY");
                         $("#message").text("PDF Generation complete");
                         window.location.href = downloadUrl;
-                     } else if (jqXHR.responseText=="FAILED") {
-                        console.log("FAIL")
-                        $("#message").text("PDF generation failed: "+jqXHR.responseText);
-                        clearInterval(ival);
+                     } else if (jqXHR.responseText == "FAILED") {
+                        console.log("FAIL");
+                        $("#message").text("PDF generation failed: " + jqXHR.responseText);
                      } else {
+                        console.log("PROCESSING");
                         if (/^\d+%$/.test(jqXHR.responseText)) {
                           $("#message").text("Generating PDF for {{ .pid }} (" + jqXHR.responseText + ")...");
                         }
+                        setTimeout(pdfStatus,5000);
                      }
                   } else {
-                     clearInterval(ival);
-                     $("#message").text("PDF generation failed: "+jqXHR.responseText);
+                     console.log("FAIL");
+                     $("#message").text("PDF generation failed: " + jqXHR.responseText);
                   }
                }
             });
-         }, 5000);
+         })();
       });
       </script>
    </head>
