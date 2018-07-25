@@ -62,7 +62,8 @@ func main() {
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?allowOldPasswords=%s", config.dbUser, config.dbPass,
 		config.dbHost, config.dbName, strconv.FormatBool(config.dbAllowOldPasswords))
 
-	db, err := sql.Open("mysql", connectStr)
+	var err error
+	db, err = sql.Open("mysql", connectStr)
 	if err != nil {
 		fmt.Printf("Database connection failed: %s", err.Error())
 		os.Exit(1)
