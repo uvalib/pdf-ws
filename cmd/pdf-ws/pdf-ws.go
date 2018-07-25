@@ -10,7 +10,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
-	"github.com/spf13/viper"
 )
 
 var db *sql.DB
@@ -37,19 +36,13 @@ func main() {
 	// Load cfg
 	logger.Printf("===> pdf-ws staring up <===")
 	logger.Printf("Load configuration...")
-	viper.SetConfigName("config")
-	viper.SetConfigType("yml")
-	viper.AddConfigPath(".")
-	err := viper.ReadInConfig()
-	if err != nil {
-		fmt.Printf("Unable to read config: %s", err.Error())
-		os.Exit(1)
-	}
 
 	// Init DB connection
 	logger.Printf("Init DB connection...")
-	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?allowOldPasswords=%s", viper.GetString("db_user"), viper.GetString("db_pass"),
-		viper.GetString("db_host"), viper.GetString("db_name"), viper.GetString("db_old_passwords"))
+	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?allowOldPasswords=%s", os.Getenv("db_user"), os.Getenv("db_pass"),
+		os.Getenv("db_host"), os.Getenv("db_name"), os.Getenv("db_old_passwords"))
+	// need this line, otherwise "undefined: err":
+	var err error
 	db, err = sql.Open("mysql", connectStr)
 	if err != nil {
 		fmt.Printf("Database connection failed: %s", err.Error())
@@ -64,14 +57,14 @@ func main() {
 	mux.GET("/:pid/status", statusHandler)
 	mux.GET("/:pid/download", downloadHandler)
 	mux.GET("/:pid/delete", deleteHandler)
-	logger.Printf("Start service on port %s", viper.GetString("port"))
+	logger.Printf("Start service on port %s", os.Getenv("port"))
 
-	if viper.GetBool("https") == true {
-		crt := viper.GetString("ssl_crt")
-		key := viper.GetString("ssl_key")
-		log.Fatal(http.ListenAndServeTLS(":"+viper.GetString("port"), crt, key, cors.Default().Handler(mux)))
+	if os.Getenv("https") == "true" {
+		crt := os.Getenv("ssl_crt")
+		key := os.Getenv("ssl_key")
+		log.Fatal(http.ListenAndServeTLS(":"+os.Getenv("port"), crt, key, cors.Default().Handler(mux)))
 	} else {
-		log.Fatal(http.ListenAndServe(":"+viper.GetString("port"), cors.Default().Handler(mux)))
+		log.Fatal(http.ListenAndServe(":"+os.Getenv("port"), cors.Default().Handler(mux)))
 	}
 }
 
