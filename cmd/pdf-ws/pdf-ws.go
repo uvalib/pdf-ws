@@ -23,7 +23,7 @@ type pageInfo struct {
 }
 
 type configData struct {
-	port string
+	listenPort string
 	dbHost string
 	dbName string
 	dbUser string
@@ -55,7 +55,7 @@ func main() {
 	// Load cfg
 	logger.Printf("===> pdf-ws staring up <===")
 	logger.Printf("Load configuration...")
-	getConfiguration()
+	getConfigValues()
 
 	// Init DB connection
 	logger.Printf("Init DB connection...")
@@ -77,12 +77,12 @@ func main() {
 	mux.GET("/:pid/status", statusHandler)
 	mux.GET("/:pid/download", downloadHandler)
 	mux.GET("/:pid/delete", deleteHandler)
-	logger.Printf("Start service on port %s", config.port)
+	logger.Printf("Start service on port %s", config.listenPort)
 
 	if config.useHttps == true {
-		log.Fatal(http.ListenAndServeTLS(":"+config.port, config.sslCrt, config.sslKey, cors.Default().Handler(mux)))
+		log.Fatal(http.ListenAndServeTLS(":"+config.listenPort, config.sslCrt, config.sslKey, cors.Default().Handler(mux)))
 	} else {
-		log.Fatal(http.ListenAndServe(":"+config.port, cors.Default().Handler(mux)))
+		log.Fatal(http.ListenAndServe(":"+config.listenPort, cors.Default().Handler(mux)))
 	}
 }
 
@@ -110,9 +110,18 @@ func ensureDefined(value string, optFlag string, optEnv string) string {
 	return newValue
 }
 
-func getConfiguration() {
+func preferEnvVar(value bool, optEnv string) bool {
+	if env := os.Getenv(optEnv); env != "" {
+		newValue, _ := strconv.ParseBool(env)
+		return newValue
+	}
+
+	return value
+}
+
+func getConfigValues() {
 	// populate values from the command line first
-	flag.StringVar(&config.port, "l", "", "[l]isten port")
+	flag.StringVar(&config.listenPort, "l", "", "[l]isten port")
 	flag.StringVar(&config.dbHost, "h", "", "database [h]ost")
 	flag.StringVar(&config.dbName, "n", "", "database [n]ame")
 	flag.StringVar(&config.dbUser, "u", "", "database [u]ser")
@@ -127,31 +136,36 @@ func getConfiguration() {
 	flag.StringVar(&config.sslKey, "k", "", "ssl [k]ey")
 	flag.Parse()
 
-	// override these with environment variables, if defined
-	var env string
+	// for these, override with environment variables, if defined
+	config.dbAllowOldPasswords = preferEnvVar(config.dbAllowOldPasswords,"PDFWS_DB_ALLOW_OLD_PASSWORDS")
+	config.allowUnpublished = preferEnvVar(config.allowUnpublished,"PDFWS_ALLOW_UNPUBLISHED")
+	config.useHttps = preferEnvVar(config.useHttps,"PDFWS_USE_HTTPS")
 
-	env = os.Getenv("db_old_passwords")
-	if env != "" {
-		config.dbAllowOldPasswords, _ = strconv.ParseBool(env)
-	}
-
-	env = os.Getenv("allow_unpublished")
-	if env != "" {
-		config.allowUnpublished, _ = strconv.ParseBool(env)
-	}
-
-	// fallback to environment variables for these, and exit if not defined
-	config.port = ensureDefined(config.port,"l","port")
-	config.dbHost = ensureDefined(config.dbHost,"h","db_host")
-	config.dbName = ensureDefined(config.dbName,"n","db_name")
-	config.dbUser = ensureDefined(config.dbUser,"u","db_user")
-	config.dbPass = ensureDefined(config.dbPass,"p","db_pass")
-	config.jp2kDir = ensureDefined(config.jp2kDir,"j","jp2k_dir")
-	config.archiveDir = ensureDefined(config.archiveDir,"m","archive_mount")
-	config.iiifUrlTemplate = ensureDefined(config.iiifUrlTemplate,"i","iiif_url_template")
-
+	// for these, fall back to environment variables if not given on command line, and exit if empty
+	config.listenPort = ensureDefined(config.listenPort,"l","PDFWS_LISTEN_PORT")
+	config.dbHost = ensureDefined(config.dbHost,"h","PDFWS_DB_HOST")
+	config.dbName = ensureDefined(config.dbName,"n","PDFWS_DB_NAME")
+	config.dbUser = ensureDefined(config.dbUser,"u","PDFWS_DB_USER")
+	config.dbPass = ensureDefined(config.dbPass,"p","PDFWS_DB_PASS")
+	config.jp2kDir = ensureDefined(config.jp2kDir,"j","PDFWS_JP2K_DIR")
+	config.archiveDir = ensureDefined(config.archiveDir,"m","PDFWS_ARCHIVE_DIR")
+	config.iiifUrlTemplate = ensureDefined(config.iiifUrlTemplate,"i","PDFWS_IIIF_URL_TEMPLATE")
 	if config.useHttps {
-		config.sslCrt = ensureDefined(config.sslCrt,"c","ssl_crt")
-		config.sslKey = ensureDefined(config.sslKey,"k","ssl_key")
+		config.sslCrt = ensureDefined(config.sslCrt,"c","PDFWS_SSL_CRT")
+		config.sslKey = ensureDefined(config.sslKey,"k","PDFWS_SSL_KEY")
 	}
+
+	logger.Printf("CONFIG: listenPort          = [%s]",config.listenPort)
+	logger.Printf("CONFIG: dbHost              = [%s]",config.dbHost)
+	logger.Printf("CONFIG: dbName              = [%s]",config.dbName)
+	logger.Printf("CONFIG: dbUser              = [%s]",config.dbUser)
+	logger.Printf("CONFIG: dbPass              = [%s]",config.dbPass)
+	logger.Printf("CONFIG: dbAllowOldPasswords = [%s]",strconv.FormatBool(config.dbAllowOldPasswords))
+	logger.Printf("CONFIG: jp2kDir             = [%s]",config.jp2kDir)
+	logger.Printf("CONFIG: archiveDir          = [%s]",config.archiveDir)
+	logger.Printf("CONFIG: allowUnpublished    = [%s]",strconv.FormatBool(config.allowUnpublished))
+	logger.Printf("CONFIG: iiifUrlTemplate     = [%s]",config.iiifUrlTemplate)
+	logger.Printf("CONFIG: useHttps            = [%s]",strconv.FormatBool(config.useHttps))
+	logger.Printf("CONFIG: sslCrt              = [%s]",config.sslCrt)
+	logger.Printf("CONFIG: sslKey              = [%s]",config.sslKey)
 }
