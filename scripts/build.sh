@@ -16,7 +16,7 @@ echo "OK"
 gitdir="$PWD"
 srcdir="${gitdir}/cmd/pdf-ws"
 webdir="${gitdir}/web"
-distdir="${gitdir}/dist"
+bindir="${gitdir}/bin"
 
 # sanity checks
 echo -n "running sanity checks... "
@@ -24,9 +24,9 @@ echo -n "running sanity checks... "
 [ ! -d "$webdir" ] && die "missing web directory: [$webdir]"
 echo "OK"
 
-# clear out any existing dist files
-echo -n "removing old distribution files... "
-[ -d "$distdir" ] && rm -rf "$distdir"
+# clear out any existing build files
+echo -n "removing old build files... "
+[ -d "$bindir" ] && rm -rf "$bindir"
 echo "OK"
 
 # kludgy prep work
@@ -37,12 +37,8 @@ ln -s ../../vendor cmd/pdf-ws/vendor
 echo "OK"
 
 echo -n "building app... "
-#env GOOS=linux go build -o "${distdir}/pdf-ws.linux" || die "build failed"
-GOPATH="$gitdir" GOOS=linux GOARCH=amd64 go build -a -o "${distdir}/pdf-ws.linux" cmd/pdf-ws/*.go || die "build failed"
-echo "OK"
-
-echo -n "copying assets... "
-cp -f "${webdir}/index.html" "${distdir}/index.html"
+#env GOOS=linux go build -o "${bindir}/pdf-ws.linux" || die "build failed"
+GOPATH="$gitdir" GOOS=linux GOARCH=amd64 go build -a -o "${bindir}/pdf-ws.linux" cmd/pdf-ws/*.go || die "build failed"
 echo "OK"
 
 echo -n "cleaning up... "
@@ -50,7 +46,7 @@ rm -f src cmd/pdf-ws/vendor
 echo "OK"
 
 echo
-echo "dist files:"
-echo
+ls -lF "$bindir"
 
-ls -lF "$distdir"
+echo
+echo "DONE"
