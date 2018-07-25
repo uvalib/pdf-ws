@@ -168,7 +168,7 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int, pdfPages st
 	}
 
 	// Must have availability set
-	if availability.Valid == false && os.Getenv("allow_unpublished") == "false" {
+	if availability.Valid == false && config.allowUnpublished == false {
 		logger.Printf("%s not found", pid)
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s not found", pid)
@@ -257,7 +257,7 @@ func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 }
 
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
-	url := os.Getenv("iiif_url_template")
+	url := config.iiifUrlTemplate
 	url = strings.Replace(url, "$PID", pid, 1)
 
 	logger.Printf("Downloading JPG from: %s", url)
@@ -287,7 +287,7 @@ func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err er
 func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string, err error) {
 	jpgFileName = fmt.Sprintf("%s/%s.jpg", outPath, pid)
 	bits := strings.Split(tifFile, "_")
-	srcFile := fmt.Sprintf("%s/%s/%s", os.Getenv("archive_mount"), bits[0], tifFile)
+	srcFile := fmt.Sprintf("%s/%s/%s", config.archiveDir, bits[0], tifFile)
 	logger.Printf("Using archived file as source: %s", srcFile)
 	_, err = os.Stat(srcFile)
 	if err != nil {
