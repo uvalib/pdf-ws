@@ -248,7 +248,7 @@ func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 		"pid":   pid,
 		"token": workDir,
 	}
-	tmpl, _ := template.ParseFiles("index.html")
+	tmpl, _ := template.ParseFiles("../web/index.html")
 	err := tmpl.ExecuteTemplate(w, "index.html", varmap)
 	if err != nil {
 		logger.Printf("Unable to render ajax polling page for %s: %s", pid, err.Error())

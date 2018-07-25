@@ -159,7 +159,7 @@ func getConfigValues() {
 	logger.Printf("CONFIG: dbHost              = [%s]",config.dbHost)
 	logger.Printf("CONFIG: dbName              = [%s]",config.dbName)
 	logger.Printf("CONFIG: dbUser              = [%s]",config.dbUser)
-	logger.Printf("CONFIG: dbPass              = [%s]",config.dbPass)
+	logger.Printf("CONFIG: dbPass              = [REDACTED]");
 	logger.Printf("CONFIG: dbAllowOldPasswords = [%s]",strconv.FormatBool(config.dbAllowOldPasswords))
 	logger.Printf("CONFIG: jp2kDir             = [%s]",config.jp2kDir)
 	logger.Printf("CONFIG: archiveDir          = [%s]",config.archiveDir)
