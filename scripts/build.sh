@@ -22,10 +22,6 @@ echo "git directory: [$gitdir]"
 [ ! -d "$cfgdir" ] && die "missing configuration directory: [$cfgdir]"
 [ ! -d "$webdir" ] && die "missing web directory: [$webdir]"
 
-echo -n "changing to test branch... "
-git checkout dcmd-441
-echo "OK"
-
 # clear out any existing dist files
 echo -n "removing old distribution files... "
 [ -d "$distdir" ] && rm -rf "$distdir"
