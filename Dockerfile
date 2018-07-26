@@ -16,6 +16,7 @@ WORKDIR $APP_HOME
 
 # Create necessary directories
 RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin
+RUN chown -R webservice $APP_HOME && chgrp -R webservice $APP_HOME
 
 # Specify the user
 USER webservice
@@ -29,9 +30,6 @@ COPY data/container_bash_profile /home/webservice/.profile
 COPY scripts/entry.sh $APP_HOME/scripts/entry.sh
 COPY web $APP_HOME/bin/web
 COPY bin/pdf-ws.linux $APP_HOME/bin/pdf-ws
-
-# Set ownership
-RUN chown -R webservice $APP_HOME && chgrp -R webservice $APP_HOME
 
 # Add the build tag
 COPY buildtag.* $APP_HOME/
