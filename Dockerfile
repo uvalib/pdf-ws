@@ -31,7 +31,7 @@ COPY web $APP_HOME/bin/web
 COPY bin/pdf-ws.linux $APP_HOME/bin/pdf-ws
 
 # Set ownership
-RUN chown -R webservice:webservice $APP_HOME
+RUN chown -R webservice $APP_HOME && chgrp -R webservice $APP_HOME
 
 # Add the build tag
 COPY buildtag.* $APP_HOME/
