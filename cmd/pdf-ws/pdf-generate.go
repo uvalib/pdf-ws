@@ -18,16 +18,35 @@ import (
 
 func determinePidType(pid string) (pidType string) {
 	var cnt int
+	var err error
+
 	pidType = "invalid"
+
 	qs := "select count(*) as cnt from metadata b where pid=?"
-	db.QueryRow(qs, pid).Scan(&cnt)
+	err = db.QueryRow(qs, pid).Scan(&cnt)
+
+	switch {
+		case err == sql.ErrNoRows:
+			logger.Printf("PID is not metadata...")
+		case err != nil:
+			logger.Printf(err.Error())
+	}
+
 	if cnt == 1 {
 		pidType = "metadata"
 		return
 	}
 
 	qs = "select count(*) as cnt from master_files b where pid=?"
-	db.QueryRow(qs, pid).Scan(&cnt)
+	err = db.QueryRow(qs, pid).Scan(&cnt)
+
+	switch {
+		case err == sql.ErrNoRows:
+			logger.Printf("PID is not master_file...")
+		case err != nil:
+			logger.Printf(err.Error())
+	}
+
 	if cnt == 1 {
 		pidType = "master_file"
 		return
