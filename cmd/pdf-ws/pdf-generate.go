@@ -405,5 +405,5 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	updateProgress(outPath,step,steps)
 
 	// Cleanup intermediate jpgFiles
-//	exec.Command("rm", jpgFiles...).Run()
+	exec.Command("rm", jpgFiles...).Run()
 }
