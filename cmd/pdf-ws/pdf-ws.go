@@ -46,11 +46,13 @@ var config configData
  * Main entry point for the web service
  */
 func main() {
+/*
 	lf, _ := os.OpenFile("service.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0777)
 	defer lf.Close()
 	logger = log.New(lf, "service: ", log.LstdFlags)
+*/
 	// use below to log to console....
-	//logger = log.New(os.Stdout, "logger: ", log.LstdFlags)
+	logger = log.New(os.Stdout, "", log.LstdFlags)
 
 	// Load cfg
 	logger.Printf("===> pdf-ws staring up <===")
@@ -101,7 +103,6 @@ func ensureDefined(value string, optFlag string, optEnv string) string {
 		newValue = os.Getenv(optEnv)
 
 		if len(newValue) == 0 {
-			log.Printf("FATAL: -%s parameter or %s environment variable is required",optFlag,optEnv)
 			logger.Printf("FATAL: -%s parameter or %s environment variable is required",optFlag,optEnv)
 			os.Exit(1)
 		}
