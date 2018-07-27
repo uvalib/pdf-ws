@@ -28,7 +28,7 @@ CMD scripts/entry.sh
 # Move in necessary assets
 COPY data/container_bash_profile /home/webservice/.profile
 COPY scripts/entry.sh $APP_HOME/scripts/entry.sh
-COPY web/index.html $APP_HOME/bin/web/index.html
+COPY web/index.html $APP_HOME/web/index.html
 COPY bin/pdf-ws.linux $APP_HOME/bin/pdf-ws
 
 # Add the build tag
