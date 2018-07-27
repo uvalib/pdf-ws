@@ -15,7 +15,7 @@ ENV APP_HOME /pdf-ws
 WORKDIR $APP_HOME
 
 # Create necessary directories
-RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin
+RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin $APP_HOME/web
 RUN chown -R webservice $APP_HOME && chgrp -R webservice $APP_HOME
 
 # Specify the user
@@ -28,7 +28,7 @@ CMD scripts/entry.sh
 # Move in necessary assets
 COPY data/container_bash_profile /home/webservice/.profile
 COPY scripts/entry.sh $APP_HOME/scripts/entry.sh
-COPY web $APP_HOME/bin/web
+COPY web/index.html $APP_HOME/bin/web/index.html
 COPY bin/pdf-ws.linux $APP_HOME/bin/pdf-ws
 
 # Add the build tag
