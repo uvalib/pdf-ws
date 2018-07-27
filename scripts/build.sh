@@ -37,8 +37,7 @@ ln -s ../../vendor cmd/pdf-ws/vendor
 echo "OK"
 
 echo -n "building app... "
-#env GOOS=linux go build -o "${bindir}/pdf-ws.linux" || die "build failed"
-GOPATH="$gitdir" GOOS=linux GOARCH=amd64 go build -a -o "${bindir}/pdf-ws.linux" cmd/pdf-ws/*.go || die "build failed"
+GOPATH="$gitdir" GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -installsuffix nocgo -o "${bindir}/pdf-ws.linux" cmd/pdf-ws/*.go || die "build failed"
 echo "OK"
 
 echo -n "cleaning up... "
