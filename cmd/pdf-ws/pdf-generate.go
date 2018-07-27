@@ -18,7 +18,6 @@ import (
 
 func determinePidType(pid string) (pidType string) {
 	var cnt int
-	var err error
 
 	pidType = "invalid"
 
