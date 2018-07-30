@@ -75,10 +75,11 @@ func main() {
 	// Set routes and start server
 	mux := httprouter.New()
 	mux.GET("/", rootHandler)
-	mux.GET("/:pid", pdfGenerate)
-	mux.GET("/:pid/status", statusHandler)
-	mux.GET("/:pid/download", downloadHandler)
-	mux.GET("/:pid/delete", deleteHandler)
+	mux.GET("/pdf/:pid", pdfGenerate)
+	mux.GET("/pdf/:pid/status", statusHandler)
+	mux.GET("/pdf/:pid/download", downloadHandler)
+	mux.GET("/pdf/:pid/delete", deleteHandler)
+	mux.GET("/healthcheck", healthCheckHandler)
 	logger.Printf("Start service on port %s", config.listenPort)
 
 	if config.useHttps == true {

@@ -4,9 +4,10 @@ This is a web service to generate a PDF from metadata records.
 It supports the following endpoints:
 
 * / : returns version information
-* /[PID] : downloads a PDF for the given PID, generating one if necessary
-* /[PID]/status : displays the PDF generation status of the given PID (e.g. nonexistent, in progress, failed, complete)
-* /[PID]/delete : removes cached PDF (can be used to reclaim space, or to support regeneration of broken PDFs)
+* /healthcheck : returns a JSON object with details about the health of the service
+* /pdf/[PID] : downloads a PDF for the given PID, generating one if necessary
+* /pdf/[PID]/status : displays the PDF generation status of the given PID (e.g. nonexistent, progress percentage, failed, complete)
+* /pdf/[PID]/delete : removes cached PDF (can be used to reclaim space, or to support regeneration of broken PDFs)
 
 ### System Requirements
 
