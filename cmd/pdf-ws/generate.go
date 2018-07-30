@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"errors"
 	"fmt"
 	"html/template"
-	"bufio"
 	"io"
 	"net/http"
 	"os"
@@ -312,14 +312,14 @@ func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string,
 }
 
 func updateProgress(outPath string, step int, steps int) {
-	logger.Printf("%d%% (step %d of %d)",(100*step)/steps,step,steps)
+	logger.Printf("%d%% (step %d of %d)", (100*step)/steps, step, steps)
 
 	f, _ := os.OpenFile(fmt.Sprintf("%s/progress.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
 
-	if _, err := fmt.Fprintf(w,"%d%%",(100*step)/steps); err != nil {
+	if _, err := fmt.Fprintf(w, "%d%%", (100*step)/steps); err != nil {
 		logger.Printf("Unable to write progress file : %s", err.Error())
 	}
 
@@ -349,7 +349,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 		logger.Printf("Get reduced size jpg for %s %s", val.PID, val.Filename)
 
 		step++
-		updateProgress(outPath,step,steps)
+		updateProgress(outPath, step, steps)
 
 		// First, try to get a JPG file from the IIIF server mount
 		jpgFile, jpgErr := downloadJpgFromIiif(outPath, val.PID)
@@ -402,7 +402,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	}
 
 	step++
-	updateProgress(outPath,step,steps)
+	updateProgress(outPath, step, steps)
 
 	// Cleanup intermediate jpgFiles
 	exec.Command("rm", jpgFiles...).Run()
