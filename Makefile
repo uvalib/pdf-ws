@@ -13,7 +13,7 @@ PROJECT=pdf-ws
 SRCDIR=cmd/$(PROJECT)
 
 build: build-$(MACHINE)
-	ln -s $(PROJECT).$(MACHINE) $(BINDIR)/$(PROJECT)
+	ln -sf $(PROJECT).$(MACHINE) $(BINDIR)/$(PROJECT)
 
 all: clean dep build
 
