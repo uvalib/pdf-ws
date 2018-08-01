@@ -13,10 +13,10 @@ func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 	pid := params.ByName("pid")
 	token := r.URL.Query().Get("token")
-	workDir := fmt.Sprintf("./tmp/%s", pid)
+	workDir := fmt.Sprintf("%s/%s", config.storageDir.value, pid)
 
 	if len(token) > 0 {
-		workDir = fmt.Sprintf("./tmp/%s", token)
+		workDir = fmt.Sprintf("%s/%s", config.storageDir.value, token)
 	}
 
 	if _, err := os.Stat(workDir); err != nil {
