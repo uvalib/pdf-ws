@@ -76,7 +76,7 @@ func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	}
 
 	// See if destination already extsts...
-	pdfDestPath := fmt.Sprintf("./tmp/%s", workDir)
+	pdfDestPath := fmt.Sprintf("%s/%s", config.storageDir.value, workDir)
 	if _, err := os.Stat(pdfDestPath); err == nil {
 		// path already exists; don't start another request, just treat
 		// this one is if it was successful and render the ajax page
@@ -172,7 +172,7 @@ func getMetadataPages(pid string, w http.ResponseWriter, unitID int, pdfPages st
 	}
 
 	// Must have availability set
-	if availability.Valid == false && config.allowUnpublished == false {
+	if availability.Valid == false && config.allowUnpublished.value == false {
 		logger.Printf("%s not found", pid)
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s not found", pid)
@@ -252,7 +252,8 @@ func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 		"pid":   pid,
 		"token": workDir,
 	}
-	tmpl, _ := template.ParseFiles("web/index.html")
+	index := fmt.Sprintf("%s/index.html", config.templateDir.value)
+	tmpl, _ := template.ParseFiles(index)
 	err := tmpl.ExecuteTemplate(w, "index.html", varmap)
 	if err != nil {
 		logger.Printf("Unable to render ajax polling page for %s: %s", pid, err.Error())
@@ -261,7 +262,7 @@ func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 }
 
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
-	url := config.iiifUrlTemplate
+	url := config.iiifUrlTemplate.value
 	url = strings.Replace(url, "$PID", pid, 1)
 
 	logger.Printf("Downloading JPG from: %s", url)
@@ -291,7 +292,7 @@ func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err er
 func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string, err error) {
 	jpgFileName = fmt.Sprintf("%s/%s.jpg", outPath, pid)
 	bits := strings.Split(tifFile, "_")
-	srcFile := fmt.Sprintf("%s/%s/%s", config.archiveDir, bits[0], tifFile)
+	srcFile := fmt.Sprintf("%s/%s/%s", config.archiveDir.value, bits[0], tifFile)
 	logger.Printf("Using archived file as source: %s", srcFile)
 	_, err = os.Stat(srcFile)
 	if err != nil {
@@ -314,7 +315,7 @@ func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string,
 func updateProgress(outPath string, step int, steps int) {
 	logger.Printf("%d%% (step %d of %d)", (100*step)/steps, step, steps)
 
-	f, _ := os.OpenFile(fmt.Sprintf("%s/progress.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+	f, _ := os.OpenFile(fmt.Sprintf("%s/progress.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
@@ -331,7 +332,7 @@ func updateProgress(outPath string, step int, steps int) {
  */
 func generatePdf(workDir string, pid string, pages []pageInfo) {
 	// Make sure the work directory exists
-	outPath := fmt.Sprintf("./tmp/%s", workDir)
+	outPath := fmt.Sprintf("%s/%s", config.storageDir.value, workDir)
 	os.MkdirAll(outPath, 0777)
 
 	// initialize progress reporting:
@@ -369,7 +370,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 
 	if len(jpgFiles) == 0 {
 		logger.Printf("No jpg files to process")
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString("No jpg files to process"); err != nil {
 			logger.Printf("Unable to write error file : %s", err.Error())
@@ -378,7 +379,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	}
 
 	// Now merge all of the files into 1 pdf
-	pdfFile := fmt.Sprintf("tmp/%s/%s.pdf", workDir, pid)
+	pdfFile := fmt.Sprintf("%s/%s/%s.pdf", config.storageDir.value, workDir, pid)
 	logger.Printf("Merging page PDFs into single PDF %s", pdfFile)
 	cmd := "convert"
 	args := []string{"-density", "150"}
@@ -387,14 +388,14 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	convErr := exec.Command(cmd, args...).Run()
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(convErr.Error()); err != nil {
 			logger.Printf("Unable to write error file : %s", err.Error())
 		}
 	} else {
 		logger.Printf("Generated PDF : %s", pdfFile)
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", outPath), os.O_CREATE|os.O_RDWR, 0777)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(pdfFile); err != nil {
 			logger.Printf("Unable to write done file : %s", err.Error())
