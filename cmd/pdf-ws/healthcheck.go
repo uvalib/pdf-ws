@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
-	"os"
-	"math/rand"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -122,7 +122,7 @@ func healthCheckHandler(rw http.ResponseWriter, req *http.Request, params httpro
 	iiifStatus := checkIIIFService()
 	fsStatus := checkFilesystem()
 
-	out := fmt.Sprintf(`{"alive": true, "iiif": %t, "tracksys": %t, "storage": %t}`, iiifStatus, tsStatus, fsStatus)
+	out := fmt.Sprintf(`{"alive": %t, "iiif": %t, "tracksys": %t, "storage": %t}`, true, iiifStatus, tsStatus, fsStatus)
 
 	if iiifStatus == false {
 		http.Error(rw, out, http.StatusInternalServerError)

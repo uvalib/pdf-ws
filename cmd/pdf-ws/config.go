@@ -8,7 +8,7 @@ import (
 
 type configItem struct {
 	flag string
-	env string
+	env  string
 	desc string
 }
 
@@ -43,21 +43,21 @@ type configData struct {
 var config configData
 
 func init() {
-	config.listenPort          = configStringItem { value: "", configItem: configItem { flag: "l", env: "PDFWS_LISTEN_PORT", desc: "listen port" } }
-	config.dbHost              = configStringItem { value: "", configItem: configItem { flag: "h", env: "PDFWS_DB_HOST", desc: "database host" } }
-	config.dbName              = configStringItem { value: "", configItem: configItem { flag: "n", env: "PDFWS_DB_NAME", desc: "database name" } }
-	config.dbUser              = configStringItem { value: "", configItem: configItem { flag: "u", env: "PDFWS_DB_USER", desc: "database user" } }
-	config.dbPass              = configStringItem { value: "", configItem: configItem { flag: "p", env: "PDFWS_DB_PASS", desc: "database password" } }
-	config.dbAllowOldPasswords = configBoolItem { value: false, configItem: configItem { flag: "o", env: "PDFWS_DB_ALLOW_OLD_PASSWORDS", desc: "allow old database passwords" } }
-	config.jp2kDir             = configStringItem { value: "", configItem: configItem { flag: "j", env: "PDFWS_JP2K_DIR", desc: "jp2k directory" } }
-	config.archiveDir          = configStringItem { value: "", configItem: configItem { flag: "m", env: "PDFWS_ARCHIVE_DIR", desc: "archival tif mount directory" } }
-	config.storageDir          = configStringItem { value: "", configItem: configItem { flag: "t", env: "PDFWS_PDF_STORAGE_DIR", desc: "pdf storage directory" } }
-	config.templateDir         = configStringItem { value: "", configItem: configItem { flag: "w", env: "PDFWS_WEB_TEMPLATE_DIR", desc: "web template directory" } }
-	config.allowUnpublished    = configBoolItem { value: false, configItem: configItem { flag: "a", env: "PDFWS_ALLOW_UNPUBLISHED", desc: "allow unpublished" } }
-	config.iiifUrlTemplate     = configStringItem { value: "", configItem: configItem { flag: "i", env: "PDFWS_IIIF_URL_TEMPLATE", desc: "iiif url template" } }
-	config.useHttps            = configBoolItem { value: false, configItem: configItem { flag: "s", env: "PDFWS_USE_HTTPS", desc: "use https" } }
-	config.sslCrt              = configStringItem { value: "", configItem: configItem { flag: "c", env: "PDFWS_SSL_CRT", desc: "ssl crt" } }
-	config.sslKey              = configStringItem { value: "", configItem: configItem { flag: "k", env: "PDFWS_SSL_KEY", desc: "ssl key" } }
+	config.listenPort = configStringItem{value: "", configItem: configItem{flag: "l", env: "PDFWS_LISTEN_PORT", desc: "listen port"}}
+	config.dbHost = configStringItem{value: "", configItem: configItem{flag: "h", env: "PDFWS_DB_HOST", desc: "database host"}}
+	config.dbName = configStringItem{value: "", configItem: configItem{flag: "n", env: "PDFWS_DB_NAME", desc: "database name"}}
+	config.dbUser = configStringItem{value: "", configItem: configItem{flag: "u", env: "PDFWS_DB_USER", desc: "database user"}}
+	config.dbPass = configStringItem{value: "", configItem: configItem{flag: "p", env: "PDFWS_DB_PASS", desc: "database password"}}
+	config.dbAllowOldPasswords = configBoolItem{value: false, configItem: configItem{flag: "o", env: "PDFWS_DB_ALLOW_OLD_PASSWORDS", desc: "allow old database passwords"}}
+	config.jp2kDir = configStringItem{value: "", configItem: configItem{flag: "j", env: "PDFWS_JP2K_DIR", desc: "jp2k directory"}}
+	config.archiveDir = configStringItem{value: "", configItem: configItem{flag: "m", env: "PDFWS_ARCHIVE_DIR", desc: "archival tif mount directory"}}
+	config.storageDir = configStringItem{value: "", configItem: configItem{flag: "t", env: "PDFWS_PDF_STORAGE_DIR", desc: "pdf storage directory"}}
+	config.templateDir = configStringItem{value: "", configItem: configItem{flag: "w", env: "PDFWS_WEB_TEMPLATE_DIR", desc: "web template directory"}}
+	config.allowUnpublished = configBoolItem{value: false, configItem: configItem{flag: "a", env: "PDFWS_ALLOW_UNPUBLISHED", desc: "allow unpublished"}}
+	config.iiifUrlTemplate = configStringItem{value: "", configItem: configItem{flag: "i", env: "PDFWS_IIIF_URL_TEMPLATE", desc: "iiif url template"}}
+	config.useHttps = configBoolItem{value: false, configItem: configItem{flag: "s", env: "PDFWS_USE_HTTPS", desc: "use https"}}
+	config.sslCrt = configStringItem{value: "", configItem: configItem{flag: "c", env: "PDFWS_SSL_CRT", desc: "ssl crt"}}
+	config.sslKey = configStringItem{value: "", configItem: configItem{flag: "k", env: "PDFWS_SSL_KEY", desc: "ssl key"}}
 }
 
 func getBoolEnv(optEnv string) bool {
