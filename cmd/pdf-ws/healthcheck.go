@@ -16,7 +16,7 @@ func checkTracksysDatabase() bool {
 	// check tracksys database connection
 
 	tsPid := "tsb:18139"
-	cnt, expected_cnt := 0, 1
+	cnt, expectedCount := 0, 1
 	tsStatus := true
 
 	logger.Printf("[HEALTH] [Tracksys] checking for PID: [%s]", tsPid)
@@ -24,9 +24,9 @@ func checkTracksysDatabase() bool {
 	qs := "select count(*) as cnt from metadata b where pid=?"
 	db.QueryRow(qs, tsPid).Scan(&cnt)
 
-	logger.Printf("[HEALTH] [Tracksys] record count: expected %d, got %d", expected_cnt, cnt)
+	logger.Printf("[HEALTH] [Tracksys] record count: expected %d, got %d", expectedCount, cnt)
 
-	if cnt != expected_cnt {
+	if cnt != expectedCount {
 		logger.Printf("[HEALTH] [Tracksys] ERROR: count mismatch")
 		tsStatus = false
 	}
@@ -40,7 +40,7 @@ func checkIIIFService() bool {
 	// check IIIF server
 
 	iiifPid := "tsm:1250722"
-	size, expected_size := 0, 154948
+	size, expectedSize := 0, 154948
 	iiifStatus := true
 
 	logger.Printf("[HEALTH] [IIIF] checking for PID: [%s]", iiifPid)
@@ -65,9 +65,9 @@ func checkIIIFService() bool {
 			resp.Body.Close()
 			size = len(b)
 
-			logger.Printf("[HEALTH] [IIIF] image size: expected %d, got %d", expected_size, size)
+			logger.Printf("[HEALTH] [IIIF] image size: expected %d, got %d", expectedSize, size)
 
-			if size != expected_size {
+			if size != expectedSize {
 				logger.Printf("[HEALTH] [IIIF] size mismatch")
 				iiifStatus = false
 			}
