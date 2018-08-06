@@ -15,7 +15,7 @@ import (
 func checkTracksysDatabase() bool {
 	// check tracksys database connection
 
-	tsPid := "tsb:18139"
+	tsPid := "uva-lib:2584807"
 	cnt, expectedCount := 0, 1
 	tsStatus := true
 
@@ -39,8 +39,8 @@ func checkTracksysDatabase() bool {
 func checkIIIFService() bool {
 	// check IIIF server
 
-	iiifPid := "tsm:1250722"
-	size, expectedSize := 0, 154948
+	iiifPid := "uva-lib:2584807"
+	size, expectedSize := 0, 71587
 	iiifStatus := true
 
 	logger.Printf("[HEALTH] [IIIF] checking for PID: [%s]", iiifPid)
