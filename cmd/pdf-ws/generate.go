@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -342,6 +343,8 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	var steps = len(pages) + 1
 	var step = 0
 
+	start := time.Now()
+
 	// iterate over page info and build a list of paths to
 	// the image for that page. Older pages may only be stored on lib_content44
 	// and newer pages will have a jp2k file avialble on the iiif server
@@ -403,6 +406,11 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 
 	step++
 	updateProgress(outPath, step, steps)
+
+	elapsed := time.Since(start).Seconds()
+
+	logger.Printf("%d pages processed in %0.2f seconds (%0.2f seconds/page)",
+		len(jpgFiles), elapsed, elapsed/float64(len(jpgFiles)))
 
 	// Cleanup intermediate jpgFiles
 	exec.Command("rm", jpgFiles...).Run()
