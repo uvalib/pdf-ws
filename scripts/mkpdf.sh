@@ -9,6 +9,9 @@ shift 2
 pdfs=()
 count="0"
 
+workdir="$(dirname "$outpdf")"
+cd "$workdir" || exit 1
+
 function get_num_chunks ()
 {
 	local items="$1"
