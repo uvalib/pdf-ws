@@ -380,11 +380,10 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 
 	// Now merge all of the files into 1 pdf
 	pdfFile := fmt.Sprintf("%s/%s/%s.pdf", config.storageDir.value, workDir, pid)
-	logger.Printf("Merging page PDFs into single PDF %s", pdfFile)
-	cmd := "convert"
-	args := []string{"-density", "150"}
+	logger.Printf("Merging pages into single PDF %s", pdfFile)
+	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
+	args := []string{pdfFile, "50"}
 	args = append(args, jpgFiles...)
-	args = append(args, pdfFile)
 	convErr := exec.Command(cmd, args...).Run()
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
