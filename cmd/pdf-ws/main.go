@@ -28,12 +28,6 @@ var logger *log.Logger
  * Main entry point for the web service
  */
 func main() {
-	/*
-		lf, _ := os.OpenFile("service.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
-		defer lf.Close()
-		logger = log.New(lf, "service: ", log.LstdFlags)
-	*/
-	// use below to log to console....
 	logger = log.New(os.Stdout, "", log.LstdFlags)
 
 	// Load cfg
@@ -64,11 +58,7 @@ func main() {
 	mux.GET("/healthcheck", healthCheckHandler)
 	logger.Printf("Start service on port %s", config.listenPort.value)
 
-	if config.useHttps.value == true {
-		log.Fatal(http.ListenAndServeTLS(":"+config.listenPort.value, config.sslCrt.value, config.sslKey.value, cors.Default().Handler(mux)))
-	} else {
-		log.Fatal(http.ListenAndServe(":"+config.listenPort.value, cors.Default().Handler(mux)))
-	}
+	log.Fatal(http.ListenAndServe(":"+config.listenPort.value, cors.Default().Handler(mux)))
 }
 
 /**

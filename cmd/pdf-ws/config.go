@@ -36,9 +36,6 @@ type configData struct {
 	templateDir         configStringItem
 	allowUnpublished    configBoolItem
 	iiifUrlTemplate     configStringItem
-	useHttps            configBoolItem
-	sslCrt              configStringItem
-	sslKey              configStringItem
 }
 
 var config configData
@@ -57,9 +54,6 @@ func init() {
 	config.templateDir = configStringItem{value: "", configItem: configItem{flag: "w", env: "PDFWS_WEB_TEMPLATE_DIR", desc: "web template directory"}}
 	config.allowUnpublished = configBoolItem{value: false, configItem: configItem{flag: "a", env: "PDFWS_ALLOW_UNPUBLISHED", desc: "allow unpublished"}}
 	config.iiifUrlTemplate = configStringItem{value: "", configItem: configItem{flag: "i", env: "PDFWS_IIIF_URL_TEMPLATE", desc: "iiif url template"}}
-	config.useHttps = configBoolItem{value: false, configItem: configItem{flag: "s", env: "PDFWS_USE_HTTPS", desc: "use https"}}
-	config.sslCrt = configStringItem{value: "", configItem: configItem{flag: "c", env: "PDFWS_SSL_CRT", desc: "ssl crt"}}
-	config.sslKey = configStringItem{value: "", configItem: configItem{flag: "k", env: "PDFWS_SSL_KEY", desc: "ssl key"}}
 }
 
 func getBoolEnv(optEnv string) bool {
@@ -102,9 +96,6 @@ func getConfigValues() {
 	flagStringVar(&config.templateDir)
 	flagBoolVar(&config.allowUnpublished)
 	flagStringVar(&config.iiifUrlTemplate)
-	flagBoolVar(&config.useHttps)
-	flagStringVar(&config.sslCrt)
-	flagStringVar(&config.sslKey)
 
 	flag.Parse()
 
@@ -122,10 +113,6 @@ func getConfigValues() {
 	configOK = ensureConfigStringSet(&config.scriptDir) && configOK
 	configOK = ensureConfigStringSet(&config.templateDir) && configOK
 	configOK = ensureConfigStringSet(&config.iiifUrlTemplate) && configOK
-	if config.useHttps.value == true {
-		configOK = ensureConfigStringSet(&config.sslCrt) && configOK
-		configOK = ensureConfigStringSet(&config.sslKey) && configOK
-	}
 
 	if configOK == false {
 		flag.Usage()
@@ -145,7 +132,4 @@ func getConfigValues() {
 	logger.Printf("[CONFIG] templateDir         = [%s]", config.templateDir.value)
 	logger.Printf("[CONFIG] allowUnpublished    = [%s]", strconv.FormatBool(config.allowUnpublished.value))
 	logger.Printf("[CONFIG] iiifUrlTemplate     = [%s]", config.iiifUrlTemplate.value)
-	logger.Printf("[CONFIG] useHttps            = [%s]", strconv.FormatBool(config.useHttps.value))
-	logger.Printf("[CONFIG] sslCrt              = [%s]", config.sslCrt.value)
-	logger.Printf("[CONFIG] sslKey              = [%s]", config.sslKey.value)
 }
