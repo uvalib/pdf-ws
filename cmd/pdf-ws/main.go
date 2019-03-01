@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
@@ -23,6 +24,7 @@ type pageInfo struct {
 
 var db *sql.DB
 var logger *log.Logger
+var client *http.Client
 
 /**
  * Main entry point for the web service
@@ -34,6 +36,9 @@ func main() {
 	logger.Printf("===> pdf-ws staring up <===")
 	logger.Printf("Load configuration...")
 	getConfigValues()
+
+	// initialize http client
+	client = &http.Client{Timeout: 10 * time.Second}
 
 	// Init DB connection
 	logger.Printf("Init DB connection...")
