@@ -37,6 +37,22 @@ function convert_images ()
 
 	get_num_chunks "$numimages" "$filesperpdf"
 
+	# determine a reasonable maximum height for limiting oddly-shaped pages such as spines
+	maxy="$(identify "$@" 2>/dev/null | awk '
+BEGIN {
+	limit = 1024 * 1.5;
+	maxy = 0;
+}
+{
+	split($3, xy, "x");
+	y = xy[2];
+	if (y < limit && y > maxy)
+		maxy = y;
+	}
+END {
+	print maxy;
+}')"
+
 	for ((i=1;i<="$chunks";i++)); do
 		ndx="$(expr \( \( "$i" - 1 \) \* "$filesperpdf" \) + 1)"
 		end="$(expr $ndx + $filesperpdf - 1)"
