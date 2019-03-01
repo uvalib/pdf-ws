@@ -487,10 +487,10 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	pdfFile := strings.TrimSpace(string(b))
 
 	/* seamless conversion from old locations */
-	if strings.HasPrefix(pdfFile,"tmp/") {
-		logger.Printf("Old location: [%s]",pdfFile)
-		pdfFile = strings.Replace(pdfFile,"tmp",config.storageDir.value,1)
-		logger.Printf("New location: [%s]",pdfFile)
+	if strings.HasPrefix(pdfFile, "tmp/") {
+		logger.Printf("Old location: [%s]", pdfFile)
+		pdfFile = strings.Replace(pdfFile, "tmp", config.storageDir.value, 1)
+		logger.Printf("New location: [%s]", pdfFile)
 
 		/* write out new location */
 	}
@@ -516,7 +516,7 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.pdf", pid))
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Length", fmt.Sprint(stat.Size()));
+	w.Header().Set("Content-Length", fmt.Sprint(stat.Size()))
 
 	io.Copy(w, in)
 
