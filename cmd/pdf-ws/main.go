@@ -55,7 +55,6 @@ func main() {
 	mux.GET("/pdf/:pid/status", statusHandler)
 	mux.GET("/pdf/:pid/download", downloadHandler)
 	mux.GET("/pdf/:pid/delete", deleteHandler)
-	mux.GET("/healthcheck", healthCheckHandler)
 	logger.Printf("Start service on port %s", config.listenPort.value)
 
 	log.Fatal(http.ListenAndServe(":"+config.listenPort.value, cors.Default().Handler(mux)))
