@@ -1,14 +1,18 @@
 # project specific definitions
-PROJECT = pdf-ws
-SRCDIR = cmd/$(PROJECT)
+SRCDIR = cmd
 BINDIR = bin
+PKGDOCKER = pdf-ws
+PACKAGES = $(PKGDOCKER)
 
 # go commands
 GOCMD = go
-GOBUILD = $(GOCMD) build
-GOCLEAN = $(GOCMD) clean
+GOBLD = $(GOCMD) build
+GOCLN = $(GOCMD) clean
+GOTST = $(GOCMD) test
 GOVET = $(GOCMD) vet
 GOFMT = $(GOCMD) fmt
+GOGET = $(GOCMD) get
+GOMOD = $(GOCMD) mod
 
 # default build target is host machine architecture
 MACHINE = $(shell uname -s | tr '[A-Z]' '[a-z]')
@@ -19,8 +23,8 @@ GOENV_darwin =
 GOFLAGS_darwin = 
 
 # linux-specific definitions
-GOENV_linux = CGO_ENABLED=0
-GOFLAGS_linux = -installsuffix cgo
+GOENV_linux = 
+GOFLAGS_linux = 
 
 # extra flags
 GOENV_EXTRA = GOARCH=amd64
@@ -28,24 +32,35 @@ GOFLAGS_EXTRA =
 
 # default target:
 
-build: target compile symlink
+build: go-vars compile symlink
 
-target:
+go-vars:
 	$(eval GOENV = GOOS=$(TARGET) $(GOENV_$(TARGET)) $(GOENV_EXTRA))
 	$(eval GOFLAGS = $(GOFLAGS_$(TARGET)) $(GOFLAGS_EXTRA))
 
 compile:
-	$(GOENV) $(GOBUILD) $(GOFLAGS) -o $(BINDIR)/$(PROJECT).$(TARGET) $(SRCDIR)/*.go
+	@ \
+	echo "building packages: [$(PACKAGES)] for target: [$(TARGET)]" ; \
+	echo ; \
+	for pkg in $(PACKAGES) ; do \
+		printf "compile: %-6s  env: [%s]  flags: [%s]\n" "$${pkg}" "$(GOENV)" "$(GOFLAGS)" ; \
+		$(GOENV) $(GOBLD) $(GOFLAGS) -o "$(BINDIR)/$${pkg}.$(TARGET)" "$(SRCDIR)/$${pkg}"/*.go || exit 1 ; \
+	done
 
 symlink:
-	ln -sf $(PROJECT).$(TARGET) $(BINDIR)/$(PROJECT)
+	@ \
+	echo ; \
+	for pkg in $(PACKAGES) ; do \
+		echo "symlink: $(BINDIR)/$${pkg} -> $${pkg}.$(TARGET)" ; \
+		ln -sf "$${pkg}.$(TARGET)" "$(BINDIR)/$${pkg}" || exit 1 ; \
+	done
 
-build-darwin: target-darwin build
+darwin: target-darwin build
 
 target-darwin:
 	$(eval TARGET = darwin)
 
-build-linux: target-linux build
+linux: target-linux build
 
 target-linux:
 	$(eval TARGET = linux)
@@ -59,16 +74,40 @@ rebuild-darwin: target-darwin rebuild
 
 rebuild-linux: target-linux rebuild
 
+# docker: make sure binary is linux and truly static
+docker-vars:
+	$(eval PACKAGES = $(PKGDOCKER))
+	$(eval GOFLAGS_EXTRA += --ldflags '-extldflags "-static"')
+
+docker: docker-vars linux
+
+rebuild-docker: docker-vars rebuild-linux
+
+# maintenance rules
 fmt:
-	(cd $(SRCDIR) && $(GOFMT))
+	@ \
+	for pkg in $(PACKAGES) ; do \
+		echo "fmt: $${pkg}" ; \
+		(cd "$(SRCDIR)/$${pkg}" && $(GOFMT)) ; \
+	done
 
 vet:
-	(cd $(SRCDIR) && $(GOVET))
+	@ \
+	for pkg in $(PACKAGES) ; do \
+		echo "vet: $${pkg}" ; \
+		(cd "$(SRCDIR)/$${pkg}" && $(GOVET)) ; \
+	done
 
 clean:
-	$(GOCLEAN)
-	rm -rf $(BINDIR)
+	@ \
+	echo "purge: $(BINDIR)/" ; \
+	rm -rf $(BINDIR) ; \
+	for pkg in $(PACKAGES) ; do \
+		echo "clean: $${pkg}" ; \
+		(cd "$(SRCDIR)/$${pkg}" && $(GOCLN)) ; \
+	done
 
 dep:
-	dep ensure
-	dep status
+	$(GOGET) -u
+	$(GOMOD) tidy
+	$(GOMOD) verify
