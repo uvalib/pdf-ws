@@ -265,7 +265,7 @@ func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
 	url := config.iiifUrlTemplate.value
-	url = strings.Replace(url, "$PID", pid, 1)
+	url = strings.Replace(url, "{PID}", pid, 1)
 
 	logger.Printf("Downloading JPG from: %s", url)
 	response, err := http.Get(url)
