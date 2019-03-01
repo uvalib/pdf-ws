@@ -23,19 +23,22 @@ type configBoolItem struct {
 }
 
 type configData struct {
-	listenPort          configStringItem
-	dbHost              configStringItem
-	dbName              configStringItem
-	dbUser              configStringItem
-	dbPass              configStringItem
-	dbAllowOldPasswords configBoolItem
-	jp2kDir             configStringItem
-	archiveDir          configStringItem
-	storageDir          configStringItem
-	scriptDir           configStringItem
-	templateDir         configStringItem
-	allowUnpublished    configBoolItem
-	iiifUrlTemplate     configStringItem
+	listenPort               configStringItem
+	dbHost                   configStringItem
+	dbName                   configStringItem
+	dbUser                   configStringItem
+	dbPass                   configStringItem
+	dbAllowOldPasswords      configBoolItem
+	tsApiHost                configStringItem
+	tsApiGetPidTemplate      configStringItem
+	tsApiGetManifestTemplate configStringItem
+	jp2kDir                  configStringItem
+	archiveDir               configStringItem
+	storageDir               configStringItem
+	scriptDir                configStringItem
+	templateDir              configStringItem
+	allowUnpublished         configBoolItem
+	iiifUrlTemplate          configStringItem
 }
 
 var config configData
@@ -47,6 +50,9 @@ func init() {
 	config.dbUser = configStringItem{value: "", configItem: configItem{flag: "u", env: "PDFWS_DB_USER", desc: "database user"}}
 	config.dbPass = configStringItem{value: "", configItem: configItem{flag: "p", env: "PDFWS_DB_PASS", desc: "database password"}}
 	config.dbAllowOldPasswords = configBoolItem{value: false, configItem: configItem{flag: "o", env: "PDFWS_DB_ALLOW_OLD_PASSWORDS", desc: "allow old database passwords"}}
+	config.tsApiHost = configStringItem{value: "", configItem: configItem{flag: "H", env: "PDFWS_TRACKSYS_API_HOST", desc: "tracksys host"}}
+	config.tsApiGetPidTemplate = configStringItem{value: "", configItem: configItem{flag: "P", env: "PDFWS_TRACKSYS_API_GET_PID_TEMPLATE", desc: "tracksys api get pid template"}}
+	config.tsApiGetManifestTemplate = configStringItem{value: "", configItem: configItem{flag: "M", env: "PDFWS_TRACKSYS_API_GET_MANIFEST_TEMPLATE", desc: "tracksys api get manifest template"}}
 	config.jp2kDir = configStringItem{value: "", configItem: configItem{flag: "j", env: "PDFWS_JP2K_DIR", desc: "jp2k directory"}}
 	config.archiveDir = configStringItem{value: "", configItem: configItem{flag: "m", env: "PDFWS_ARCHIVE_DIR", desc: "archival tif mount directory"}}
 	config.storageDir = configStringItem{value: "", configItem: configItem{flag: "t", env: "PDFWS_PDF_STORAGE_DIR", desc: "pdf storage directory"}}
@@ -89,6 +95,9 @@ func getConfigValues() {
 	flagStringVar(&config.dbUser)
 	flagStringVar(&config.dbPass)
 	flagBoolVar(&config.dbAllowOldPasswords)
+	flagStringVar(&config.tsApiHost)
+	flagStringVar(&config.tsApiGetPidTemplate)
+	flagStringVar(&config.tsApiGetManifestTemplate)
 	flagStringVar(&config.jp2kDir)
 	flagStringVar(&config.archiveDir)
 	flagStringVar(&config.storageDir)
@@ -119,17 +128,20 @@ func getConfigValues() {
 		os.Exit(1)
 	}
 
-	logger.Printf("[CONFIG] listenPort          = [%s]", config.listenPort.value)
-	logger.Printf("[CONFIG] dbHost              = [%s]", config.dbHost.value)
-	logger.Printf("[CONFIG] dbName              = [%s]", config.dbName.value)
-	logger.Printf("[CONFIG] dbUser              = [%s]", config.dbUser.value)
-	logger.Printf("[CONFIG] dbPass              = [REDACTED]")
-	logger.Printf("[CONFIG] dbAllowOldPasswords = [%s]", strconv.FormatBool(config.dbAllowOldPasswords.value))
-	logger.Printf("[CONFIG] jp2kDir             = [%s]", config.jp2kDir.value)
-	logger.Printf("[CONFIG] archiveDir          = [%s]", config.archiveDir.value)
-	logger.Printf("[CONFIG] storageDir          = [%s]", config.storageDir.value)
-	logger.Printf("[CONFIG] scriptDir           = [%s]", config.scriptDir.value)
-	logger.Printf("[CONFIG] templateDir         = [%s]", config.templateDir.value)
-	logger.Printf("[CONFIG] allowUnpublished    = [%s]", strconv.FormatBool(config.allowUnpublished.value))
-	logger.Printf("[CONFIG] iiifUrlTemplate     = [%s]", config.iiifUrlTemplate.value)
+	logger.Printf("[CONFIG] listenPort                = [%s]", config.listenPort.value)
+	logger.Printf("[CONFIG] dbHost                    = [%s]", config.dbHost.value)
+	logger.Printf("[CONFIG] dbName                    = [%s]", config.dbName.value)
+	logger.Printf("[CONFIG] dbUser                    = [%s]", config.dbUser.value)
+	logger.Printf("[CONFIG] dbPass                    = [REDACTED]")
+	logger.Printf("[CONFIG] dbAllowOldPasswords       = [%s]", strconv.FormatBool(config.dbAllowOldPasswords.value))
+	logger.Printf("[CONFIG] tsApiHost                 = [%s]", config.tsApiHost.value)
+	logger.Printf("[CONFIG] tsApiGetPidTemplate       = [%s]", config.tsApiGetPidTemplate.value)
+	logger.Printf("[CONFIG] tsApiGetManifestTemplate  = [%s]", config.tsApiGetManifestTemplate.value)
+	logger.Printf("[CONFIG] jp2kDir                   = [%s]", config.jp2kDir.value)
+	logger.Printf("[CONFIG] archiveDir                = [%s]", config.archiveDir.value)
+	logger.Printf("[CONFIG] storageDir                = [%s]", config.storageDir.value)
+	logger.Printf("[CONFIG] scriptDir                 = [%s]", config.scriptDir.value)
+	logger.Printf("[CONFIG] templateDir               = [%s]", config.templateDir.value)
+	logger.Printf("[CONFIG] allowUnpublished          = [%s]", strconv.FormatBool(config.allowUnpublished.value))
+	logger.Printf("[CONFIG] iiifUrlTemplate           = [%s]", config.iiifUrlTemplate.value)
 }
