@@ -77,7 +77,6 @@ rebuild-linux: target-linux rebuild
 # docker: make sure binary is linux and truly static
 docker-vars:
 	$(eval PACKAGES = $(PKGDOCKER))
-	$(eval GOENV_EXTRA += CGO_ENABLED=0)
 	$(eval GOFLAGS_EXTRA += --ldflags '-extldflags "-static"')
 
 docker: docker-vars linux
