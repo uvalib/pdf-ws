@@ -53,7 +53,7 @@ func getWorkDir(pid, unit, token string) string {
 /**
  * Handle a request for a PDF of page images
  */
-func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
 
 	pdf := pdfInfo{}

@@ -33,7 +33,7 @@ func main() {
 	// Set routes and start server
 	mux := httprouter.New()
 	mux.GET("/", rootHandler)
-	mux.GET("/pdf/:pid", pdfGenerate)
+	mux.GET("/pdf/:pid", generateHandler)
 	mux.GET("/pdf/:pid/status", statusHandler)
 	mux.GET("/pdf/:pid/download", downloadHandler)
 	mux.GET("/pdf/:pid/delete", deleteHandler)
