@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"database/sql"
 	"errors"
 	"fmt"
 	"html/template"
@@ -18,28 +17,37 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func determinePidType(pid string) (pidType string) {
-	var cnt int
+type pdfRequest struct {
+	pid   string
+	unit  string
+	pages string
+	token string
+	embed string
+}
 
-	pidType = "invalid"
+type pdfInfo struct {
+	req     pdfRequest // values from original request
+	ts      *tsPidInfo // values looked up in tracksys
+	subDir  string
+	workDir string
+	embed   bool
+}
 
-	qs := "select count(*) as cnt from metadata b where pid=?"
-	db.QueryRow(qs, pid).Scan(&cnt)
+func getWorkDir(pid, unit, token string) string {
+	subDir := pid
 
-	if cnt == 1 {
-		pidType = "metadata"
-		return
+	switch {
+	case token != "":
+		subDir = token
+
+	case unit != "":
+		unitID, _ := strconv.Atoi(unit)
+		if unitID > 0 {
+			subDir = fmt.Sprintf("%s/%d", pid, unitID)
+		}
 	}
 
-	qs = "select count(*) as cnt from master_files b where pid=?"
-	db.QueryRow(qs, pid).Scan(&cnt)
-
-	if cnt == 1 {
-		pidType = "master_file"
-		return
-	}
-
-	return
+	return fmt.Sprintf("%s/%s", config.storageDir.value, subDir)
 }
 
 /**
@@ -47,203 +55,68 @@ func determinePidType(pid string) (pidType string) {
  */
 func pdfGenerate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
-	pid := params.ByName("pid")
-	workDir := pid
-	unitID, _ := strconv.Atoi(r.URL.Query().Get("unit"))
-	if unitID > 0 {
-		// if pages from a specific unit are requested, put them
-		// in a unit sibdirectory under the metadata pid
-		workDir = fmt.Sprintf("%s/%d", pid, unitID)
-	}
 
-	// pull params for select page pdf generation; pages and token
-	pdfPages := r.URL.Query().Get("pages")
-	pdfToken := r.URL.Query().Get("token")
-	if len(pdfPages) > 0 {
-		if len(pdfToken) == 0 {
-			logger.Printf("Request for partial PDF ls missing a token")
+	pdf := pdfInfo{}
+
+	pdf.req.pid = params.ByName("pid")
+	pdf.req.unit = r.URL.Query().Get("unit")
+	pdf.req.pages = r.URL.Query().Get("pages")
+	pdf.req.token = r.URL.Query().Get("token")
+	pdf.req.embed = r.URL.Query().Get("embed")
+
+	pdf.subDir = pdf.req.pid
+
+	token := ""
+	if pdf.req.pages != "" {
+		if pdf.req.token != "" {
+			logger.Printf("Request for partial PDF is missing a token")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "Missing token")
 			return
 		}
-		workDir = pdfToken
-		logger.Printf("Request for partial PDF including pages: %s", pdfPages)
+		token = pdf.req.token
+		logger.Printf("Request for partial PDF including pages: %s", pdf.req.pages)
 	}
 
-	// pull query string params; embed and unit
-	embedStr := r.URL.Query().Get("embed")
-	embed := true
-	if len(embedStr) == 0 || embedStr == "0" {
-		embed = false
+	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, token)
+
+	pdf.embed = true
+	if len(pdf.req.embed) == 0 || pdf.req.embed == "0" {
+		pdf.embed = false
 	}
 
 	// See if destination already extsts...
-	pdfDestPath := fmt.Sprintf("%s/%s", config.storageDir.value, workDir)
-	if _, err := os.Stat(pdfDestPath); err == nil {
+	if _, err := os.Stat(pdf.workDir); err == nil {
 		// path already exists; don't start another request, just treat
 		// this one is if it was successful and render the ajax page
-		if embed {
+		if pdf.embed {
 			fmt.Fprintf(w, "ok")
 		} else {
-			renderAjaxPage(workDir, pid, w)
+			renderAjaxPage(pdf.workDir, pdf.req.pid, w)
 		}
 		return
 	}
 
-	// Determine what this pid is. Fail if it can't be determined
-	pidType := determinePidType(pid)
-	logger.Printf("PID %s is a %s", pid, pidType)
-	var pages []pageInfo
-	var err error
-	if pidType == "metadata" {
-		pages, err = getMetadataPages(pid, w, unitID, pdfPages)
-		if err != nil {
-			return
-		}
-	} else if pidType == "master_file" {
-		pages, err = getMasterFilePages(pid, w)
-		if err != nil {
-			return
-		}
-	} else {
-		logger.Printf("Unknown PID %s", pid)
+	ts, tsErr := tsGetPidInfo(pdf.req.pid, pdf.req.unit)
+
+	if tsErr != nil {
+		logger.Printf("Tracksys API error: [%s]", tsErr.Error())
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "PID %s not found", pid)
+		fmt.Fprintf(w, fmt.Sprintf("ERROR: Could not retrieve PID info: [%s]", tsErr.Error()))
 		return
 	}
+
+	pdf.ts = ts
 
 	// kick the lengthy PDF generation off in a go routine
-	go generatePdf(workDir, pid, pages)
+	go generatePdf(pdf)
 
 	// Render a simple ok message or kick an ajax polling loop
-	if embed {
+	if pdf.embed {
 		fmt.Fprintf(w, "ok")
 	} else {
-		renderAjaxPage(workDir, pid, w)
+		renderAjaxPage(pdf.workDir, pdf.req.pid, w)
 	}
-}
-
-func getMasterFilePages(pid string, w http.ResponseWriter) (pages []pageInfo, err error) {
-	var pg pageInfo
-	var origID sql.NullInt64
-	qs := `select pid, filename, title, original_mf_id from master_files where pid = ?`
-	err = db.QueryRow(qs, pid).Scan(&pg.PID, &pg.Filename, &pg.Title, &origID)
-	if err != nil {
-		logger.Printf("Request failed: %s", err.Error())
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
-		return
-	}
-
-	// if this is a clone, grab the info for the original
-	if origID.Valid {
-		qs := `select pid, filename, title from master_files where id = ?`
-		err = db.QueryRow(qs, origID.Int64).Scan(&pg.PID, &pg.Filename, &pg.Title)
-		if err != nil {
-			logger.Printf("Request failed: %s", err.Error())
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
-			return
-		}
-	}
-
-	pages = append(pages, pg)
-
-	return
-}
-
-// NOTE: when called from Tracksys, the unitID will be set. Honor this and generate a PDF
-// of all masterfiles in that unit regardless of published status. When called from Virgo,
-// unitID will NOT be set. Run through all units and only include those that are
-// in the DL and are publicly visible
-//
-func getMetadataPages(pid string, w http.ResponseWriter, unitID int, pdfPages string) (pages []pageInfo, err error) {
-	// Get metadata for the passed PID
-	logger.Printf("Get Metadata pages params: PID: %s, Unit %d, Pages: %s", pid, unitID, pdfPages)
-
-	var availability sql.NullInt64
-	var metadataID int
-	var title string
-	qs := "select id, title, availability_policy_id from metadata where pid=?"
-	err = db.QueryRow(qs, pid).Scan(&metadataID, &title, &availability)
-	if err != nil {
-		logger.Printf("Request failed: %s", err.Error())
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Unable to PDF: %s", err.Error())
-		return
-	}
-
-	// Must have availability set
-	if availability.Valid == false && config.allowUnpublished.value == false {
-		logger.Printf("%s not found", pid)
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s not found", pid)
-		return
-	}
-
-	// Get data for all master files from units associated with metadata / unit
-	// Do this in two passes, once for orignal master files and once for clones
-	for i := 0; i < 2; i++ {
-		queryParams := []interface{}{metadataID}
-		if i == 0 {
-			// Non-cloned master files
-			qs = `select m.id, m.pid, m.filename, m.title from master_files m
-               inner join units u on u.id = m.unit_id
-               where m.metadata_id = ? and u.include_in_dl = 1 and m.original_mf_id is null`
-			if unitID > 0 {
-				qs = `select m.id, m.pid, m.filename, m.title from master_files m
-                  where unit_id = ? and m.original_mf_id is null`
-				queryParams = []interface{}{unitID}
-			}
-		} else {
-			// Cloned master files
-			qs = `select om.id, om.pid, om.filename, om.title from master_files m
-			      inner join master_files om on om.id = m.original_mf_id
-               inner join units u on u.id = m.unit_id
-			      where m.metadata_id = ? and u.include_in_dl = 1 and m.original_mf_id is not null`
-			if unitID > 0 {
-				qs = `select om.id, om.pid, om.filename, om.title from master_files m
-   			      inner join master_files om on om.id = m.original_mf_id
-   			      where m.unit_id = ? and m.original_mf_id is not null`
-				queryParams = []interface{}{unitID}
-			}
-		}
-
-		// Filter to only pids requested?
-		if len(pdfPages) > 0 {
-			idStr := strings.Split(pdfPages, ",")
-			for _, val := range idStr {
-				id, invalid := strconv.Atoi(val)
-				if invalid == nil {
-					queryParams = append(queryParams, id)
-				}
-			}
-			qs = qs + " and m.id in (?" + strings.Repeat(",?", len(idStr)-1) + ")"
-		}
-
-		logger.Printf("Query: %s, Params: %s", qs, queryParams)
-		rows, queryErr := db.Query(qs, queryParams...)
-		defer rows.Close()
-		if queryErr != nil {
-			logger.Printf("Request failed: %s", queryErr.Error())
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Unable to PDF: %s", queryErr.Error())
-			return
-		}
-
-		for rows.Next() {
-			var pg pageInfo
-			var mfID int
-			err = rows.Scan(&mfID, &pg.PID, &pg.Filename, &pg.Title)
-			if err != nil {
-				logger.Printf("Unable to retrieve MasterFile data for PDF generation %s: %s", pid, err.Error())
-				continue
-			}
-
-			pages = append(pages, pg)
-		}
-	}
-	return
 }
 
 /*
@@ -332,16 +205,15 @@ func updateProgress(outPath string, step int, steps int) {
 /**
  * use jp2 or archived tif files to generate a multipage PDF for a PID
  */
-func generatePdf(workDir string, pid string, pages []pageInfo) {
+func generatePdf(pdf pdfInfo) {
 	// Make sure the work directory exists
-	outPath := fmt.Sprintf("%s/%s", config.storageDir.value, workDir)
-	os.MkdirAll(outPath, 0777)
+	os.MkdirAll(pdf.workDir, 0777)
 
 	// initialize progress reporting:
 	// steps include each page download, plus a final conversion step
 	// future enhancement: each page download, plus each page as processed by imagemagick (convert -monitor)
 
-	var steps = len(pages) + 1
+	var steps = len(pdf.ts.Pages) + 1
 	var step = 0
 
 	start := time.Now()
@@ -350,20 +222,20 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	// the image for that page. Older pages may only be stored on lib_content44
 	// and newer pages will have a jp2k file avialble on the iiif server
 	var jpgFiles []string
-	for _, val := range pages {
-		logger.Printf("Get reduced size jpg for %s %s", val.PID, val.Filename)
+	for _, page := range pdf.ts.Pages {
+		logger.Printf("Get reduced size jpg for %s %s", page.Pid, page.Filename)
 
 		step++
-		updateProgress(outPath, step, steps)
+		updateProgress(pdf.workDir, step, steps)
 
-		// First, try to get a JPG file from the IIIF server mount
-		jpgFile, jpgErr := downloadJpgFromIiif(outPath, val.PID)
+		// First, try to get a JPG file from the IIIF server
+		jpgFile, jpgErr := downloadJpgFromIiif(pdf.workDir, page.Pid)
 		if jpgErr != nil {
 			// not found. work from the archival tif file
 			logger.Printf("No JPG found on IIIF server; using archival tif...")
-			jpgFile, jpgErr = jpgFromTif(outPath, val.PID, val.Filename)
+			jpgFile, jpgErr = jpgFromTif(pdf.workDir, page.Pid, page.Filename)
 			if jpgErr != nil {
-				logger.Printf("Unable to find source image for masterFile %s. Skipping.", val.PID)
+				logger.Printf("Unable to find source image for masterFile %s. Skipping.", page.Pid)
 				continue
 			}
 		}
@@ -374,7 +246,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 
 	if len(jpgFiles) == 0 {
 		logger.Printf("No jpg files to process")
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString("No jpg files to process"); err != nil {
 			logger.Printf("Unable to write error file : %s", err.Error())
@@ -383,7 +255,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	}
 
 	// Now merge all of the files into 1 pdf
-	pdfFile := fmt.Sprintf("%s/%s/%s.pdf", config.storageDir.value, workDir, pid)
+	pdfFile := fmt.Sprintf("%s/%s.pdf", pdf.workDir, pdf.req.pid)
 	logger.Printf("Merging pages into single PDF %s", pdfFile)
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
 	args := []string{pdfFile, "50"}
@@ -391,14 +263,14 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	convErr := exec.Command(cmd, args...).Run()
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(convErr.Error()); err != nil {
 			logger.Printf("Unable to write error file : %s", err.Error())
 		}
 	} else {
 		logger.Printf("Generated PDF : %s", pdfFile)
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(pdfFile); err != nil {
 			logger.Printf("Unable to write done file : %s", err.Error())
@@ -406,7 +278,7 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 	}
 
 	step++
-	updateProgress(outPath, step, steps)
+	updateProgress(pdf.workDir, step, steps)
 
 	elapsed := time.Since(start).Seconds()
 
@@ -419,34 +291,35 @@ func generatePdf(workDir string, pid string, pages []pageInfo) {
 
 func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
-	pid := params.ByName("pid")
-	token := r.URL.Query().Get("token")
-	workDir := fmt.Sprintf("%s/%s", config.storageDir.value, pid)
 
-	if len(token) > 0 {
-		workDir = fmt.Sprintf("%s/%s", config.storageDir.value, token)
-	}
+	pdf := pdfInfo{}
 
-	if _, err := os.Stat(workDir); err != nil {
+	pdf.req.pid = params.ByName("pid")
+	pdf.req.unit = r.URL.Query().Get("unit")
+	pdf.req.token = r.URL.Query().Get("token")
+
+	pdf.subDir = pdf.req.pid
+	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+
+	if _, err := os.Stat(pdf.workDir); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "Not found")
 		return
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", workDir)); err == nil {
+	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", pdf.workDir)); err == nil {
 		fmt.Fprintf(w, "READY")
 		return
 	}
 
-	errorFile := fmt.Sprintf("%s/fail.txt", workDir)
+	errorFile := fmt.Sprintf("%s/fail.txt", pdf.workDir)
 	if _, err := os.Stat(errorFile); err == nil {
 		fmt.Fprintf(w, "FAILED")
-		os.Remove(errorFile)
-		os.Remove(workDir)
+		os.RemoveAll(pdf.workDir)
 		return
 	}
 
-	progressFile := fmt.Sprintf("%s/progress.txt", workDir)
+	progressFile := fmt.Sprintf("%s/progress.txt", pdf.workDir)
 	prog, err := ioutil.ReadFile(progressFile)
 	if err != nil {
 		fmt.Fprintf(w, "PROCESSING")
@@ -458,20 +331,24 @@ func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 
 func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
-	pid := params.ByName("pid")
-	token := r.URL.Query().Get("token")
-	workDir := fmt.Sprintf("%s/%s", config.storageDir.value, pid)
-	if len(token) > 0 {
-		workDir = fmt.Sprintf("%s/%s", config.storageDir.value, token)
-	}
-	if _, err := os.Stat(workDir); err != nil {
+
+	pdf := pdfInfo{}
+
+	pdf.req.pid = params.ByName("pid")
+	pdf.req.unit = r.URL.Query().Get("unit")
+	pdf.req.token = r.URL.Query().Get("token")
+
+	pdf.subDir = pdf.req.pid
+	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+
+	if _, err := os.Stat(pdf.workDir); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "Not found")
 		return
 	}
 
 	/* get path of file to send from the done file */
-	f, err := os.OpenFile(fmt.Sprintf("%s/done.txt", workDir), os.O_RDONLY, 0666)
+	f, err := os.OpenFile(fmt.Sprintf("%s/done.txt", pdf.workDir), os.O_RDONLY, 0666)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "Not found")
@@ -514,24 +391,28 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	logger.Printf("Sending %s to client with size %d", pdfFile, stat.Size())
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.pdf", pid))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.pdf", pdf.req.pid))
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Length", fmt.Sprint(stat.Size()))
 
 	io.Copy(w, in)
 
-	logger.Printf("PDF download for %s completed successfully", pid)
+	logger.Printf("PDF download for %s completed successfully", pdf.req.pid)
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Printf("%s %s", r.Method, r.RequestURI)
-	pid := params.ByName("pid")
-	token := r.URL.Query().Get("token")
-	workDir := fmt.Sprintf("%s/%s", config.storageDir.value, pid)
-	if len(token) > 0 {
-		workDir = fmt.Sprintf("%s/%s", config.storageDir.value, token)
-	}
-	if err := os.RemoveAll(workDir); err != nil {
+
+	pdf := pdfInfo{}
+
+	pdf.req.pid = params.ByName("pid")
+	pdf.req.unit = r.URL.Query().Get("unit")
+	pdf.req.token = r.URL.Query().Get("token")
+
+	pdf.subDir = pdf.req.pid
+	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+
+	if err := os.RemoveAll(pdf.workDir); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "ERROR")
 		return

@@ -1,28 +1,18 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 )
 
-const version = "1.6"
+const version = "2.0"
 
-type pageInfo struct {
-	PID      string
-	Filename string
-	Title    sql.NullString
-}
-
-var db *sql.DB
 var logger *log.Logger
 var client *http.Client
 
@@ -39,19 +29,6 @@ func main() {
 
 	// initialize http client
 	client = &http.Client{Timeout: 10 * time.Second}
-
-	// Init DB connection
-	logger.Printf("Init DB connection...")
-	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?allowOldPasswords=%s", config.dbUser.value, config.dbPass.value,
-		config.dbHost.value, config.dbName.value, strconv.FormatBool(config.dbAllowOldPasswords.value))
-
-	var err error
-	db, err = sql.Open("mysql", connectStr)
-	if err != nil {
-		fmt.Printf("Database connection failed: %s", err.Error())
-		os.Exit(1)
-	}
-	defer db.Close()
 
 	// Set routes and start server
 	mux := httprouter.New()
