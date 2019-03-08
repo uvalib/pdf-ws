@@ -38,33 +38,33 @@ function convert_images ()
 	get_num_chunks "$numimages" "$filesperpdf"
 
 	# determine a reasonable maximum height for limiting oddly-shaped pages such as spines
-	maxy="$(identify "$@" 2>/dev/null | awk '
+	maxheight="$(identify "$@" 2>/dev/null | awk '
 BEGIN {
 	limit = 1024 * 1.5;
-	maxy = 0;
+	maxh = 0;
 }
 {
-	split($3, xy, "x");
-	y = xy[2];
-	if (y < limit && y > maxy)
-		maxy = y;
+	split($3, wh, "x");
+	h = wh[2];
+	if (h < limit && h > maxh)
+		maxh = h;
 	}
 END {
-	print maxy;
+	print maxh;
 }')"
 
 	for ((i=1;i<="$chunks";i++)); do
 		ndx="$(expr \( \( "$i" - 1 \) \* "$filesperpdf" \) + 1)"
-		end="$(expr $ndx + $filesperpdf - 1)"
+		end="$(expr "$ndx" + "$filesperpdf" - 1)"
 		[ "$end" -gt "$numimages" ] && end="$numimages"
-		len="$(expr $end - $ndx + 1)"
+		len="$(expr "$end" - "$ndx" + 1)"
 
 		get_next_pdf
 		pdfs+=("$pdf")
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -density 150 "${@:$ndx:$len}" "$pdf"
+		convert -resize "x${maxheight}>" "${@:$ndx:$len}" "$pdf"
 	done
 }
 
