@@ -328,17 +328,10 @@ func generatePdf(pdf pdfInfo) {
 
 	footer := fmt.Sprintf("%s\n\n\n%s\n\n\n\n%s", generated, citation, libraryid)
 
-	logger.Printf("header        : [%s]", header)
-	logger.Printf("logo          : [%s]", logo)
-	logger.Printf("title         : [%s]", title)
-	logger.Printf("author        : [%s]", author)
-	logger.Printf("year          : [%s]", year)
-	logger.Printf("rightswrapper : [%s]", rightswrapper)
-	logger.Printf("rights        : [%s]", rights)
-	logger.Printf("generated     : [%s]", generated)
-	logger.Printf("citation      : [%s]", citation)
-	logger.Printf("libraryid     : [%s]", libraryid)
-	logger.Printf("footer        : [%s]", footer)
+	logger.Printf("title     : [%s]", title)
+	logger.Printf("author    : [%s]", author)
+	logger.Printf("year      : [%s]", year)
+	logger.Printf("virgo url : [%s]", url)
 
 	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
