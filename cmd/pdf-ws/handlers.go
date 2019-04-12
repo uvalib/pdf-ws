@@ -28,6 +28,7 @@ type pdfRequest struct {
 type pdfInfo struct {
 	req     pdfRequest // values from original request
 	ts      *tsPidInfo // values looked up in tracksys
+	solr    *solrInfo  // values looked up in solr
 	subDir  string
 	workDir string
 	embed   bool
@@ -97,16 +98,25 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		return
 	}
 
-	ts, tsErr := tsGetPidInfo(pdf.req.pid, pdf.req.unit)
+	var apiErr error
 
-	if tsErr != nil {
-		logger.Printf("Tracksys API error: [%s]", tsErr.Error())
+	pdf.ts, apiErr = tsGetPidInfo(pdf.req.pid, pdf.req.unit)
+
+	if apiErr != nil {
+		logger.Printf("Tracksys API error: [%s]", apiErr.Error())
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, fmt.Sprintf("ERROR: Could not retrieve PID info: [%s]", tsErr.Error()))
+		fmt.Fprintf(w, fmt.Sprintf("ERROR: Could not retrieve PID info: [%s]", apiErr.Error()))
 		return
 	}
 
-	pdf.ts = ts
+	pdf.solr, apiErr = solrGetInfo(pdf.req.pid)
+
+	if apiErr != nil {
+		logger.Printf("Solr error: [%s]", apiErr.Error())
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, fmt.Sprintf("ERROR: Could not retrieve Solr info: [%s]", apiErr.Error()))
+		return
+	}
 
 	// kick the lengthy PDF generation off in a go routine
 	go generatePdf(pdf)
@@ -138,7 +148,7 @@ func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
 
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
 	url := config.iiifUrlTemplate.value
-	url = strings.Replace(url, "{PID}", pid, 1)
+	url = strings.Replace(url, "{PID}", pid, -1)
 
 	logger.Printf("Downloading JPG from: %s", url)
 	response, err := http.Get(url)
@@ -257,10 +267,86 @@ func generatePdf(pdf pdfInfo) {
 	// Now merge all of the files into 1 pdf
 	pdfFile := fmt.Sprintf("%s/%s.pdf", pdf.workDir, pdf.req.pid)
 	logger.Printf("Merging pages into single PDF %s", pdfFile)
+
+	// set up arguments
+
+	header := `This book was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)`
+
+	logo := fmt.Sprintf("%s/UVALIB_inline_black_web.png", config.assetsDir.value)
+
+	// use first title entry if available
+	title := ""
+	if len(pdf.solr.Response.Docs[0].TitleDisplay) > 0 {
+		title = pdf.solr.Response.Docs[0].TitleDisplay[0]
+	}
+
+	// use first author entry if available
+	author := ""
+	if len(pdf.solr.Response.Docs[0].AuthorFacet) > 0 {
+		author = pdf.solr.Response.Docs[0].AuthorFacet[0]
+	}
+
+	// use first published date entry if available
+	year := ""
+	if len(pdf.solr.Response.Docs[0].PublishedDateDisplay) > 0 {
+		year = pdf.solr.Response.Docs[0].PublishedDateDisplay[0]
+	}
+
+	// use first rights wrapper text entry if available
+	rightswrapper := ""
+	if len(pdf.solr.Response.Docs[0].RightsWrapperDisplay) > 0 {
+		rightswrapper = pdf.solr.Response.Docs[0].RightsWrapperDisplay[0]
+	}
+
+	// filter out catalog link, convert http: to https:, remove period from terms link, and drop any trailing newline
+	rights := ""
+	for _, line := range strings.Split(rightswrapper, "\n") {
+		if strings.Contains(line, "/catalog/") {
+			continue
+		}
+
+		rights = fmt.Sprintf("%s%s\n", rights, line)
+	}
+	rights = strings.Replace(rights, "http:", "https:", -1)
+	rights = strings.Replace(rights, ".html.", ".html", -1)
+	rights = strings.TrimRight(rights, "\n")
+
+	generated := fmt.Sprintf("Generation date: %s", time.Now().Format("2006-01-02"))
+
+	url := strings.Replace(config.virgoUrlTemplate.value, "{ID}", pdf.solr.Response.Docs[0].Id, -1)
+
+	citation := ""
+	if author != "" {
+		citation = fmt.Sprintf("%s%s. ", citation, strings.TrimRight(author, "."))
+	}
+	if year != "" {
+		citation = fmt.Sprintf("%s(%s). ", citation, year)
+	}
+	citation = fmt.Sprintf("%s\"%s\" [PDF document]. Available from %s", citation, title, url)
+
+	libraryid := fmt.Sprintf("UVA Library ID Information:\n\n%s", rights)
+
+	footer := fmt.Sprintf("%s\n\n\n%s\n\n\n\n%s", generated, citation, libraryid)
+
+	logger.Printf("header        : [%s]", header)
+	logger.Printf("logo          : [%s]", logo)
+	logger.Printf("title         : [%s]", title)
+	logger.Printf("author        : [%s]", author)
+	logger.Printf("year          : [%s]", year)
+	logger.Printf("rightswrapper : [%s]", rightswrapper)
+	logger.Printf("rights        : [%s]", rights)
+	logger.Printf("generated     : [%s]", generated)
+	logger.Printf("citation      : [%s]", citation)
+	logger.Printf("libraryid     : [%s]", libraryid)
+	logger.Printf("footer        : [%s]", footer)
+
+	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
-	args := []string{pdfFile, "50"}
+	args := []string{"-o", pdfFile, "-n", "50", "-h", header, "-l", logo, "-t", title, "-a", author, "-f", footer, "--"}
 	args = append(args, jpgFiles...)
+
 	convErr := exec.Command(cmd, args...).Run()
+
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
