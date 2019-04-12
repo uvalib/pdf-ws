@@ -328,24 +328,24 @@ func generatePdf(pdf pdfInfo) {
 
 	footer := fmt.Sprintf("%s\n\n\n%s\n\n\n\n%s", generated, citation, libraryid)
 
-	logger.Printf("title     : [%s]", title)
-	logger.Printf("author    : [%s]", author)
-	logger.Printf("year      : [%s]", year)
-	logger.Printf("virgo url : [%s]", url)
+	logger.Printf("title  : [%s]", title)
+	logger.Printf("author : [%s]", author)
+	logger.Printf("year   : [%s]", year)
+	logger.Printf("verify : [%s] (%s)", pdf.workDir, url)
 
 	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
 	args := []string{"-o", pdfFile, "-n", "50", "-h", header, "-l", logo, "-t", title, "-a", author, "-f", footer, "--"}
 	args = append(args, jpgFiles...)
 
-	convErr := exec.Command(cmd, args...).Run()
+	out, convErr := exec.Command(cmd, args...).CombinedOutput()
 
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(convErr.Error()); err != nil {
-			logger.Printf("Unable to write error file : %s", err.Error())
+			logger.Printf("Unable to write error file : %s\n\nscript output:\n\n%s", err.Error(), string(out))
 		}
 	} else {
 		logger.Printf("Generated PDF : %s", pdfFile)
