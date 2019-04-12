@@ -191,8 +191,7 @@ cd "$workdir" || die "could not change to directory: [$workdir]"
 
 create_cover_image
 
-#create_partial_pdfs "cover.png" "$@"
-create_partial_pdfs "$@"
+create_partial_pdfs "cover.png" "$@"
 
 merge_partial_pdfs
 
