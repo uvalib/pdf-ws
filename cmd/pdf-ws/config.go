@@ -31,8 +31,11 @@ type configData struct {
 	archiveDir               configStringItem
 	storageDir               configStringItem
 	scriptDir                configStringItem
+	assetsDir                configStringItem
 	templateDir              configStringItem
 	iiifUrlTemplate          configStringItem
+	solrUrlTemplate          configStringItem
+	virgoUrlTemplate         configStringItem
 }
 
 var config configData
@@ -46,8 +49,11 @@ func init() {
 	config.archiveDir = configStringItem{value: "", configItem: configItem{flag: "m", env: "PDFWS_ARCHIVE_DIR", desc: "archival tif mount directory"}}
 	config.storageDir = configStringItem{value: "", configItem: configItem{flag: "t", env: "PDFWS_PDF_STORAGE_DIR", desc: "pdf storage directory"}}
 	config.scriptDir = configStringItem{value: "", configItem: configItem{flag: "r", env: "PDFWS_SCRIPT_DIR", desc: "helper script directory"}}
+	config.assetsDir = configStringItem{value: "", configItem: configItem{flag: "a", env: "PDFWS_ASSETS_DIR", desc: "assets directory"}}
 	config.templateDir = configStringItem{value: "", configItem: configItem{flag: "w", env: "PDFWS_WEB_TEMPLATE_DIR", desc: "web template directory"}}
 	config.iiifUrlTemplate = configStringItem{value: "", configItem: configItem{flag: "i", env: "PDFWS_IIIF_URL_TEMPLATE", desc: "iiif url template"}}
+	config.solrUrlTemplate = configStringItem{value: "", configItem: configItem{flag: "s", env: "PDFWS_SOLR_URL_TEMPLATE", desc: "solr url template"}}
+	config.virgoUrlTemplate = configStringItem{value: "", configItem: configItem{flag: "v", env: "PDFWS_VIRGO_URL_TEMPLATE", desc: "virgo url template"}}
 }
 
 func getBoolEnv(optEnv string) bool {
@@ -85,8 +91,11 @@ func getConfigValues() {
 	flagStringVar(&config.archiveDir)
 	flagStringVar(&config.storageDir)
 	flagStringVar(&config.scriptDir)
+	flagStringVar(&config.assetsDir)
 	flagStringVar(&config.templateDir)
 	flagStringVar(&config.iiifUrlTemplate)
+	flagStringVar(&config.solrUrlTemplate)
+	flagStringVar(&config.virgoUrlTemplate)
 
 	flag.Parse()
 
@@ -98,8 +107,11 @@ func getConfigValues() {
 	configOK = ensureConfigStringSet(&config.archiveDir) && configOK
 	configOK = ensureConfigStringSet(&config.storageDir) && configOK
 	configOK = ensureConfigStringSet(&config.scriptDir) && configOK
+	configOK = ensureConfigStringSet(&config.assetsDir) && configOK
 	configOK = ensureConfigStringSet(&config.templateDir) && configOK
 	configOK = ensureConfigStringSet(&config.iiifUrlTemplate) && configOK
+	configOK = ensureConfigStringSet(&config.solrUrlTemplate) && configOK
+	configOK = ensureConfigStringSet(&config.virgoUrlTemplate) && configOK
 
 	if configOK == false {
 		flag.Usage()
@@ -114,6 +126,9 @@ func getConfigValues() {
 	logger.Printf("[CONFIG] archiveDir                = [%s]", config.archiveDir.value)
 	logger.Printf("[CONFIG] storageDir                = [%s]", config.storageDir.value)
 	logger.Printf("[CONFIG] scriptDir                 = [%s]", config.scriptDir.value)
+	logger.Printf("[CONFIG] assetsDir                 = [%s]", config.assetsDir.value)
 	logger.Printf("[CONFIG] templateDir               = [%s]", config.templateDir.value)
 	logger.Printf("[CONFIG] iiifUrlTemplate           = [%s]", config.iiifUrlTemplate.value)
+	logger.Printf("[CONFIG] solrUrlTemplate           = [%s]", config.solrUrlTemplate.value)
+	logger.Printf("[CONFIG] virgoUrlTemplate          = [%s]", config.virgoUrlTemplate.value)
 }
