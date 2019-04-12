@@ -2,22 +2,26 @@
 
 # merge OCR text files
 
-# required arguments
-title=""
-author=""
-year=""
-rights=""
-logofile=""
+# general arguments
 outpdf=""
-
-# optional arguments
 numimagesperpdf="50"
 
+# cover page arguments
+header=""
+logo=""
+title=""
+author=""
+footer=""
+
+# internal variables
 pdfs=()
 count="0"
 
-workdir="$(dirname "$outpdf")"
-cd "$workdir" || exit 1
+function die ()
+{
+	echo "error: $@"
+	exit 1
+}
 
 function get_num_chunks ()
 {
@@ -47,39 +51,16 @@ function create_cover_image ()
 	capmargin="100"
 	capwidth="$(expr "$width" - 2 \* "$capmargin")"
 
-	logowidth="$(identify -format "%w" "$logofile")"
+	logowidth="$(identify -format "%w" "$logo")"
 	logoinset="$(expr \( "$width" - "$logowidth" \) / 2)"
 
-	today="$(date +%Y-%m-%d)"
 	pointreg="20"
 	pointbig="30"
-
-	rights="$(echo -e "$rights" | grep -v "/catalog/" | sed -e 's/http:/https:/g' -e 's/\(.*html\)\(.*\)$/\1/g')"
 
 	font="Arial"
 	#font="TimesNewRoman"
 
 	bkg="none"
-
-	header="This book was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)"
-
-	generated="Generation date: ${today}"
-
-	citation=""
-	if [ "$author" != "" ]; then
-		citation="${citation}${author}"
-		c="$(echo -n "$author" | tail -c 1)"
-		[ "$c" != "." ] && citation="${citation}."
-		citation="${citation} "
-	fi
-	if [ "$year" != "" ]; then
-		citation="${citation}(${year}). "
-	fi
-	citation="${citation}\"${title}\" [PDF document]. Available from ${url}"
-
-	libraryid="UVA Library ID Information:\n\n${rights}"
-
-	footer="${generated}\n\n\n${citation}\n\n\n\n${libraryid}"
 
 	yoffset="150"
 
@@ -88,7 +69,7 @@ function create_cover_image ()
 	ylast="$(identify -format "%h" header.miff)"
 	(( yoffset += 100 + "$ylast" ))
 
-	convert -page "+${logoinset}+${yoffset}" "$logofile" logo.miff
+	convert -page "+${logoinset}+${yoffset}" "$logo" logo.miff
 	ylast="$(identify -format "%h" logo.miff)"
 	(( yoffset += 100 + "$ylast" ))
 
@@ -166,34 +147,47 @@ function do_cleanup ()
 
 ### parse command line
 
+# general arguments
+outpdf=""
+numimagesperpdf="50"
+
+# cover page arguments
+header=""
+logo=""
+title=""
+author=""
+footer=""
+
 while [ "$#" -gt "0" ]; do
 	arg="$1"
 	val="$2"
 
 	case $arg in
 		-a ) author="$val"; shift; shift ;;
-		-l ) logofile="$val"; shift; shift ;;
+		-f ) footer="$val"; shift; shift ;;
+		-h ) header="$val"; shift; shift ;;
+		-l ) logo="$val"; shift; shift ;;
 		-n ) numimagesperpdf="$val"; shift; shift ;;
 		-o ) outpdf="$val"; shift; shift ;;
-		-r ) rights="$val"; shift; shift ;;
 		-t ) title="$val"; shift; shift ;;
-		-y ) year="$val"; shift; shift ;;
 		-- ) shift; break ;;
-		-* ) echo "unknown option: [$arg]"; exit 1 ;;
+		-* ) die "unknown option: [$arg]" ;;
 		 * ) break ;;
 	esac
 done
 
-printf "%15s : [%s]\n" "title" "$title"
-printf "%15s : [%s]\n" "author" "$author"
-printf "%15s : [%s]\n" "year" "$year"
-printf "%15s : [%s]\n" "rights" "$rights"
-printf "%15s : [%s]\n" "logofile" "$logofile"
-printf "%15s : [%s]\n" "outpdf" "$outpdf"
-printf "%15s : [%s]\n" "numimagesperpdf" "$numimagesperpdf"
-for f in "$@"; do
-	printf "%15s : [%s]\n" "file" "$f"
+# validate arguments
+[ ! -f "$logo" ] && die "logo file does not exist: [$logo]"
+for var in header author title footer; do
+	val="${!var}"
+	[ "$val" = "" ] && die "missing $var: [$val]"
 done
+
+# change to working directory
+workdir="$(dirname "$outpdf")"
+cd "$workdir" || die "could not change to directory: [$workdir]"
+
+# now generate the pdf:
 
 create_cover_image
 
