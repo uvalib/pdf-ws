@@ -62,7 +62,10 @@ function create_cover_image ()
 
 	bkg="none"
 
-	yoffset="150"
+	# top/bottom margins
+	topmargin="150"
+	bottommargin="50"
+	yoffset="$topmargin"
 
 	convert -size "${capwidth}x" -gravity center -fill black -background "$bkg" -font "$font" -pointsize "$pointreg" \
 		-page "+${capmargin}+${yoffset}" caption:"${header}" header.miff
@@ -85,6 +88,11 @@ function create_cover_image ()
 
 	convert -size "${capwidth}x" -gravity center -fill black -background "$bkg" -font "$font" -pointsize "$pointreg" \
 		-page "+${capmargin}+${yoffset}" caption:"${footer}" footer.miff
+	ylast="$(identify -format "%h" footer.miff)"
+	(( yoffset += "$bottommargin" + "$ylast" ))
+
+	# grow the page if necessary
+	[ "$yoffset" -gt "$height" ] && height="$yoffset"
 
 	cat header.miff logo.miff title.miff author.miff footer.miff \
 		| convert -size "${width}x${height}" xc:white - -flatten cover.png
