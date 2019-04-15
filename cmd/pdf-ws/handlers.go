@@ -270,7 +270,7 @@ func generatePdf(pdf pdfInfo) {
 
 	// set up arguments
 
-	header := `This book was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)`
+	header := `This resource was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)`
 
 	logo := fmt.Sprintf("%s/UVALIB_inline_black_web.png", config.assetsDir.value)
 
