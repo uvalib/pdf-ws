@@ -69,7 +69,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	token := ""
 	if pdf.req.pages != "" {
-		if pdf.req.token != "" {
+		if pdf.req.token == "" {
 			logger.Printf("Request for partial PDF is missing a token")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "Missing token")
