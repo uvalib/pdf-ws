@@ -160,6 +160,7 @@ outpdf=""
 numimagesperpdf="50"
 
 # cover page arguments
+cover="n"
 header=""
 logo=""
 title=""
@@ -172,6 +173,7 @@ while [ "$#" -gt "0" ]; do
 
 	case $arg in
 		-a ) author="$val"; shift; shift ;;
+		-c ) cover="y"; shift ;;
 		-f ) footer="$val"; shift; shift ;;
 		-h ) header="$val"; shift; shift ;;
 		-l ) logo="$val"; shift; shift ;;
@@ -184,22 +186,28 @@ while [ "$#" -gt "0" ]; do
 	esac
 done
 
-# validate arguments
-[ ! -f "$logo" ] && die "logo file does not exist: [$logo]"
-for var in header author title footer; do
-	val="${!var}"
-	[ "$val" = "" ] && die "missing $var: [$val]"
-done
-
 # change to working directory
 workdir="$(dirname "$outpdf")"
 cd "$workdir" || die "could not change to directory: [$workdir]"
 
-# now generate the pdf:
+# now generate the pdf with optional cover page:
 
-create_cover_image
+if [ "$cover" = "y" ]; then
+	# validate arguments
+	[ ! -f "$logo" ] && die "logo file does not exist: [$logo]"
 
-create_partial_pdfs "cover.png" "$@"
+	for var in header author title footer; do
+		val="${!var}"
+		[ "$val" = "" ] && die "missing $var: [$val]"
+	done
+
+	create_cover_image
+
+	create_partial_pdfs "cover.png" "$@"
+else
+	# no cover page
+	create_partial_pdfs "$@"
+fi
 
 merge_partial_pdfs
 

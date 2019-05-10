@@ -112,10 +112,13 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	pdf.solr, apiErr = solrGetInfo(pdf.req.pid)
 
 	if apiErr != nil {
-		logger.Printf("Solr error: [%s]", apiErr.Error())
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, fmt.Sprintf("ERROR: Could not retrieve Solr info: [%s]", apiErr.Error()))
-		return
+		logger.Printf("WARNING: [%s] Solr error: [%s]", pdf.req.pid, apiErr.Error())
+
+		if pdf.workDir == pdf.req.pid {
+			logger.Printf("WARNING: [%s] generating PDF without a cover page", pdf.req.pid)
+		} else {
+			logger.Printf("WARNING: [%s] generating PDF without a cover page in directory: %s", pdf.req.pid, pdf.workDir)
+		}
 	}
 
 	// kick the lengthy PDF generation off in a go routine
@@ -212,61 +215,12 @@ func updateProgress(outPath string, step int, steps int) {
 	w.Flush()
 }
 
-/**
- * use jp2 or archived tif files to generate a multipage PDF for a PID
- */
-func generatePdf(pdf pdfInfo) {
-	// Make sure the work directory exists
-	os.MkdirAll(pdf.workDir, 0777)
+func getCoverPageArgs(pdf pdfInfo) []string {
+	args := []string{}
 
-	// initialize progress reporting:
-	// steps include each page download, plus a final conversion step
-	// future enhancement: each page download, plus each page as processed by imagemagick (convert -monitor)
-
-	var steps = len(pdf.ts.Pages) + 1
-	var step = 0
-
-	start := time.Now()
-
-	// iterate over page info and build a list of paths to
-	// the image for that page. Older pages may only be stored on lib_content44
-	// and newer pages will have a jp2k file avialble on the iiif server
-	var jpgFiles []string
-	for _, page := range pdf.ts.Pages {
-		logger.Printf("Get reduced size jpg for %s %s", page.Pid, page.Filename)
-
-		step++
-		updateProgress(pdf.workDir, step, steps)
-
-		// First, try to get a JPG file from the IIIF server
-		jpgFile, jpgErr := downloadJpgFromIiif(pdf.workDir, page.Pid)
-		if jpgErr != nil {
-			// not found. work from the archival tif file
-			logger.Printf("No JPG found on IIIF server; using archival tif...")
-			jpgFile, jpgErr = jpgFromTif(pdf.workDir, page.Pid, page.Filename)
-			if jpgErr != nil {
-				logger.Printf("Unable to find source image for masterFile %s. Skipping.", page.Pid)
-				continue
-			}
-		}
-		jpgFiles = append(jpgFiles, jpgFile)
+	if pdf.solr == nil {
+		return args
 	}
-
-	// check if we have any jpg files to process
-
-	if len(jpgFiles) == 0 {
-		logger.Printf("No jpg files to process")
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
-		defer ef.Close()
-		if _, err := ef.WriteString("No jpg files to process"); err != nil {
-			logger.Printf("Unable to write error file : %s", err.Error())
-		}
-		return
-	}
-
-	// Now merge all of the files into 1 pdf
-	pdfFile := fmt.Sprintf("%s/%s.pdf", pdf.workDir, pdf.req.pid)
-	logger.Printf("Merging pages into single PDF %s", pdfFile)
 
 	// set up arguments
 
@@ -333,9 +287,76 @@ func generatePdf(pdf pdfInfo) {
 	logger.Printf("year   : [%s]", year)
 	logger.Printf("verify : [%s] (%s)", pdf.workDir, url)
 
+	args = []string{"-c", "-h", header, "-l", logo, "-t", title, "-a", author, "-f", footer}
+
+	return args
+}
+
+/**
+ * use jp2 or archived tif files to generate a multipage PDF for a PID
+ */
+func generatePdf(pdf pdfInfo) {
+	// Make sure the work directory exists
+	os.MkdirAll(pdf.workDir, 0777)
+
+	// initialize progress reporting:
+	// steps include each page download, plus a final conversion step
+	// future enhancement: each page download, plus each page as processed by imagemagick (convert -monitor)
+
+	var steps = len(pdf.ts.Pages) + 1
+	var step = 0
+
+	start := time.Now()
+
+	// iterate over page info and build a list of paths to
+	// the image for that page. Older pages may only be stored on an NFS share
+	// and newer pages will have a jp2k file available on the iiif server
+	var jpgFiles []string
+	for _, page := range pdf.ts.Pages {
+		logger.Printf("Get reduced size jpg for %s %s", page.Pid, page.Filename)
+
+		step++
+		updateProgress(pdf.workDir, step, steps)
+
+		// First, try to get a JPG file from the IIIF server
+		jpgFile, jpgErr := downloadJpgFromIiif(pdf.workDir, page.Pid)
+		if jpgErr != nil {
+			// not found. work from the archival tif file
+			logger.Printf("No JPG found on IIIF server; using archival tif...")
+			jpgFile, jpgErr = jpgFromTif(pdf.workDir, page.Pid, page.Filename)
+			if jpgErr != nil {
+				logger.Printf("Unable to find source image for masterFile %s. Skipping.", page.Pid)
+				continue
+			}
+		}
+		jpgFiles = append(jpgFiles, jpgFile)
+	}
+
+	// check if we have any jpg files to process
+
+	if len(jpgFiles) == 0 {
+		logger.Printf("No jpg files to process")
+		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
+		defer ef.Close()
+		if _, err := ef.WriteString("No jpg files to process"); err != nil {
+			logger.Printf("Unable to write error file : %s", err.Error())
+		}
+		return
+	}
+
+	// Now merge all of the files into 1 pdf
+	pdfFile := fmt.Sprintf("%s/%s.pdf", pdf.workDir, pdf.req.pid)
+	logger.Printf("Merging pages into single PDF %s", pdfFile)
+
+	// generate a cover page only if we have Solr info
+
+	coverPageArgs := getCoverPageArgs(pdf)
+
 	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
-	args := []string{"-o", pdfFile, "-n", "50", "-h", header, "-l", logo, "-t", title, "-a", author, "-f", footer, "--"}
+	args := []string{"-o", pdfFile, "-n", "50"}
+	args = append(args, coverPageArgs...)
+	args = append(args, "--")
 	args = append(args, jpgFiles...)
 
 	out, convErr := exec.Command(cmd, args...).CombinedOutput()
