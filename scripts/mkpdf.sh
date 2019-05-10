@@ -111,15 +111,24 @@ function create_partial_pdfs ()
 	# determine a reasonable maximum height for limiting oddly-shaped images such as spines
 	maxheight="$(identify "$@" 2>/dev/null | awk '
 BEGIN {
-	limit = 1024 * 1.5;
 	maxh = 0;
+	limit = 1024 * 1.5;
 }
+
+function min(a, b)
+{
+	if (a < b)
+		return a
+	return b
+}
+
 {
 	split($3, wh, "x");
 	h = wh[2];
-	if (h < limit && h > maxh)
-		maxh = h;
-	}
+	if (h > maxh)
+		maxh = min(h, limit)
+}
+
 END {
 	print maxh;
 }')"
