@@ -144,7 +144,7 @@ END {
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -resize "x${maxheight}>" "${@:$ndx:$len}" "$pdf"
+		convert -resize "x${maxheight}>" -density 150 "${@:$ndx:$len}" "$pdf"
 	done
 }
 
