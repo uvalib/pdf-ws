@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ func tsApiUrlForPidUnit(api, pid, unit string) string {
 	return url
 }
 
-func tsGetPagesFromManifest(pid, unit string) ([]tsGenericPidInfo, error) {
+func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error) {
 	url := tsApiUrlForPidUnit(config.tsApiGetManifestTemplate.value, pid, unit)
 
 	req, reqErr := http.NewRequest("GET", url, nil)
@@ -63,22 +64,48 @@ func tsGetPagesFromManifest(pid, unit string) ([]tsGenericPidInfo, error) {
 
 	// parse json from body
 
-	var tsPages []tsGenericPidInfo
+	var allPages []tsGenericPidInfo
 
 	buf, _ := ioutil.ReadAll(res.Body)
-	if jErr := json.Unmarshal(buf, &tsPages); jErr != nil {
+	if jErr := json.Unmarshal(buf, &allPages); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
 		return nil, errors.New(fmt.Sprintf("Failed to unmarshal manifest response: [%s]", buf))
 	}
 
+	// filter pages, if requested
+
+	var tsPages []tsGenericPidInfo
+
+	if pages == "" {
+		tsPages = allPages
+	} else {
+		pageMap := make(map[int]bool)
+
+		for _, pageId := range strings.Split(pages, ",") {
+			if pageId == "" {
+				continue
+			}
+			pageIdVal, _ := strconv.Atoi(pageId)
+			pageMap[pageIdVal] = true
+		}
+
+		for _, p := range allPages {
+			if pageMap[p.Id] {
+				tsPages = append(tsPages, p)
+			}
+		}
+
+		logger.Printf("filtered pages from %d to %d", len(allPages), len(tsPages))
+	}
+
 	for i, p := range tsPages {
-		logger.Printf("    [page %d / %d]  { [%s]  [%s]  [%s]  [%s] }", i+1, len(tsPages), p.Pid, p.Filename, p.Title, p.TextSource)
+		logger.Printf("    [page %d / %d]  { [%s]  [%s]  [%s]  [%s]  [%s] }", i+1, len(tsPages), p.Id, p.Pid, p.Filename, p.Title, p.TextSource)
 	}
 
 	return tsPages, nil
 }
 
-func tsGetPidInfo(pid, unit string) (*tsPidInfo, error) {
+func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 	url := tsApiUrlForPidUnit(config.tsApiGetPidTemplate.value, pid, "")
 
 	req, reqErr := http.NewRequest("GET", url, nil)
@@ -121,7 +148,7 @@ func tsGetPidInfo(pid, unit string) (*tsPidInfo, error) {
 	case strings.Contains(ts.Pid.Type, "metadata"):
 		var mfErr error
 
-		ts.Pages, mfErr = tsGetPagesFromManifest(pid, unit)
+		ts.Pages, mfErr = tsGetPagesFromManifest(pid, unit, pages)
 		if mfErr != nil {
 			logger.Printf("tsGetPagesFromManifest() failed: [%s]", mfErr.Error())
 			return nil, mfErr
@@ -133,8 +160,8 @@ func tsGetPidInfo(pid, unit string) (*tsPidInfo, error) {
 	return nil, errors.New(fmt.Sprintf("Unhandled PID type: [%s]", ts.Pid.Type))
 }
 
-func tsGetMetadataPidInfo(pid, unit string) (*tsPidInfo, error) {
-	ts, err := tsGetPidInfo(pid, unit)
+func tsGetMetadataPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
+	ts, err := tsGetPidInfo(pid, unit, pages)
 
 	if err != nil {
 		return nil, err

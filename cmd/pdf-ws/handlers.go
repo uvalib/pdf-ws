@@ -106,7 +106,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	var apiErr error
 
-	pdf.ts, apiErr = tsGetPidInfo(pdf.req.pid, pdf.req.unit)
+	pdf.ts, apiErr = tsGetPidInfo(pdf.req.pid, pdf.req.unit, pdf.req.pages)
 
 	if apiErr != nil {
 		logger.Printf("Tracksys API error: [%s]", apiErr.Error())
