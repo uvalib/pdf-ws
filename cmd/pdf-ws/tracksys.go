@@ -99,7 +99,7 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 	}
 
 	for i, p := range tsPages {
-		logger.Printf("    [page %d / %d]  { [%s]  [%s]  [%s]  [%s]  [%s] }", i+1, len(tsPages), p.Id, p.Pid, p.Filename, p.Title, p.TextSource)
+		logger.Printf("    [page %d / %d]  { [%d]  [%s]  [%s]  [%s]  [%s] }", i+1, len(tsPages), p.Id, p.Pid, p.Filename, p.Title, p.TextSource)
 	}
 
 	return tsPages, nil
