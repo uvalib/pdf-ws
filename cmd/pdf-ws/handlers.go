@@ -26,13 +26,13 @@ type pdfRequest struct {
 }
 
 type pdfInfo struct {
-	req     pdfRequest // values from original request
-	ts      *tsPidInfo // values looked up in tracksys
-	solr    *solrInfo  // values looked up in solr
-	subDir  string
+	req        pdfRequest // values from original request
+	ts         *tsPidInfo // values looked up in tracksys
+	solr       *solrInfo  // values looked up in solr
+	subDir     string
 	workSubDir string
-	workDir string
-	embed   bool
+	workDir    string
+	embed      bool
 }
 
 func getWorkSubDir(pid, unit, token string) string {
@@ -141,10 +141,10 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 /*
  * Render a simple html page that will poll for status of this PDF, and download it when done
  */
-func renderAjaxPage(workDir string, pid string, w http.ResponseWriter) {
+func renderAjaxPage(workSubDir string, pid string, w http.ResponseWriter) {
 	varmap := map[string]interface{}{
 		"pid":   pid,
-		"token": workDir,
+		"token": workSubDir,
 	}
 	index := fmt.Sprintf("%s/index.html", config.templateDir.value)
 	tmpl, _ := template.ParseFiles(index)
