@@ -30,11 +30,12 @@ type pdfInfo struct {
 	ts      *tsPidInfo // values looked up in tracksys
 	solr    *solrInfo  // values looked up in solr
 	subDir  string
+	workSubDir string
 	workDir string
 	embed   bool
 }
 
-func getWorkDir(pid, unit, token string) string {
+func getWorkSubDir(pid, unit, token string) string {
 	subDir := pid
 
 	switch {
@@ -48,6 +49,10 @@ func getWorkDir(pid, unit, token string) string {
 		}
 	}
 
+	return subDir
+}
+
+func getWorkDir(subDir string) string {
 	return fmt.Sprintf("%s/%s", config.storageDir.value, subDir)
 }
 
@@ -79,7 +84,8 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		logger.Printf("Request for partial PDF including pages: %s", pdf.req.pages)
 	}
 
-	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, token)
+	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, token)
+	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	pdf.embed = true
 	if len(pdf.req.embed) == 0 || pdf.req.embed == "0" {
@@ -93,7 +99,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		if pdf.embed {
 			fmt.Fprintf(w, "ok")
 		} else {
-			renderAjaxPage(pdf.workDir, pdf.req.pid, w)
+			renderAjaxPage(pdf.workSubDir, pdf.req.pid, w)
 		}
 		return
 	}
@@ -128,7 +134,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	if pdf.embed {
 		fmt.Fprintf(w, "ok")
 	} else {
-		renderAjaxPage(pdf.workDir, pdf.req.pid, w)
+		renderAjaxPage(pdf.workSubDir, pdf.req.pid, w)
 	}
 }
 
@@ -399,7 +405,9 @@ func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	pdf.req.token = r.URL.Query().Get("token")
 
 	pdf.subDir = pdf.req.pid
-	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+
+	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	if _, err := os.Stat(pdf.workDir); err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -439,7 +447,9 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	pdf.req.token = r.URL.Query().Get("token")
 
 	pdf.subDir = pdf.req.pid
-	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+
+	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	if _, err := os.Stat(pdf.workDir); err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -510,7 +520,9 @@ func deleteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	pdf.req.token = r.URL.Query().Get("token")
 
 	pdf.subDir = pdf.req.pid
-	pdf.workDir = getWorkDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+
+	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
+	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	if err := os.RemoveAll(pdf.workDir); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
