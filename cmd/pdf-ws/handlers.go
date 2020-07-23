@@ -234,29 +234,13 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	logo := fmt.Sprintf("%s/UVALIB_inline_black_web.png", config.assetsDir.value)
 
-	// use first title entry if available
-	title := ""
-	if len(pdf.solr.Response.Docs[0].TitleDisplay) > 0 {
-		title = pdf.solr.Response.Docs[0].TitleDisplay[0]
-	}
+	doc := pdf.solr.Response.Docs[0]
 
-	// use first author entry if available
-	author := ""
-	if len(pdf.solr.Response.Docs[0].AuthorFacet) > 0 {
-		author = pdf.solr.Response.Docs[0].AuthorFacet[0]
-	}
-
-	// use first published date entry if available
-	year := ""
-	if len(pdf.solr.Response.Docs[0].PublishedDateDisplay) > 0 {
-		year = pdf.solr.Response.Docs[0].PublishedDateDisplay[0]
-	}
-
-	// use first rights wrapper text entry if available
-	rightswrapper := ""
-	if len(pdf.solr.Response.Docs[0].RightsWrapperDisplay) > 0 {
-		rightswrapper = pdf.solr.Response.Docs[0].RightsWrapperDisplay[0]
-	}
+	// use first entry for these fields, if available
+	title := firstElementOf(doc.TitleDisplay)
+	author := firstElementOf(doc.AuthorFacet)
+	year := firstElementOf(doc.PublishedDateDisplay)
+	rightswrapper := firstElementOf(doc.RightsWrapperDisplay)
 
 	// filter out catalog link, convert http: to https:, remove period from terms link, and drop any trailing newline
 	rights := ""
@@ -273,7 +257,7 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	generated := fmt.Sprintf("Generation date: %s", time.Now().Format("2006-01-02"))
 
-	url := strings.Replace(config.virgoUrlTemplate.value, "{ID}", pdf.solr.Response.Docs[0].Id, -1)
+	url := strings.Replace(config.virgoUrlTemplate.value, "{ID}", doc.Id, -1)
 
 	citation := ""
 	if author != "" {

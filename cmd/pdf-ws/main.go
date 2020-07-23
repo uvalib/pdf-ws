@@ -71,7 +71,7 @@ func versionHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 // Handle a request for /healthcheck
 func healthCheckHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	health := healthcheckDetails{ healthCheckStatus{ Healthy: true, Message: "Not implemented"}}
+	health := healthcheckDetails{healthCheckStatus{Healthy: true, Message: "Not implemented"}}
 
 	output, jsonErr := json.Marshal(health)
 	if jsonErr != nil {

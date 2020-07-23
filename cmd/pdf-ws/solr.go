@@ -35,6 +35,17 @@ type solrInfo struct {
 	Response       solrResponse       `json:"response,omitempty"`
 }
 
+func firstElementOf(s []string) string {
+	// return first element of slice, or blank string if empty
+	val := ""
+
+	if len(s) > 0 {
+		val = s[0]
+	}
+
+	return val
+}
+
 func solrGetInfo(pid string) (*solrInfo, error) {
 	url := config.solrUrlTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
@@ -74,12 +85,15 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	}
 
 	// expecting just one record
-	logger.Printf("id                     : [%s]", solr.Response.Docs[0].Id)
-	logger.Printf("title_display          : [%s]", solr.Response.Docs[0].TitleDisplay[0])
-	logger.Printf("author_facet           : [%s]", solr.Response.Docs[0].AuthorFacet[0])
-	logger.Printf("published_date_display : [%s]", solr.Response.Docs[0].PublishedDateDisplay[0])
-	logger.Printf("alternate_id_facet     : [%s]", solr.Response.Docs[0].AlternateIdFacet[0])
-	logger.Printf("rights_wrapper_display : [%s]", solr.Response.Docs[0].RightsWrapperDisplay[0])
+
+	doc := solr.Response.Docs[0]
+
+	logger.Printf("id                     : [%s]", doc.Id)
+	logger.Printf("title_display          : [%s]", firstElementOf(doc.TitleDisplay))
+	logger.Printf("author_facet           : [%s]", firstElementOf(doc.AuthorFacet))
+	logger.Printf("published_date_display : [%s]", firstElementOf(doc.PublishedDateDisplay))
+	logger.Printf("alternate_id_facet     : [%s]", firstElementOf(doc.AlternateIdFacet))
+	logger.Printf("rights_wrapper_display : [%s]", firstElementOf(doc.RightsWrapperDisplay))
 
 	return &solr, nil
 }

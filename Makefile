@@ -112,6 +112,6 @@ clean:
 	done
 
 dep:
-	$(GOGET) -u
+	$(GOGET) -u ./$(SRCDIR)/...
 	$(GOMOD) tidy
 	$(GOMOD) verify
