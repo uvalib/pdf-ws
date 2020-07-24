@@ -350,12 +350,14 @@ func generatePdf(pdf pdfInfo) {
 
 	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
-	args := []string{"-o", pdfFile, "-n", "50"}
+	args := []string{"-x", cmd, "-o", pdfFile, "-n", "50"}
 	args = append(args, coverPageArgs...)
 	args = append(args, "--")
 	args = append(args, jpgFiles...)
 
-	out, convErr := exec.Command(cmd, args...).CombinedOutput()
+	logger.Printf("command: bash %#v", args)
+
+	out, convErr := exec.Command("bash", args...).CombinedOutput()
 
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
