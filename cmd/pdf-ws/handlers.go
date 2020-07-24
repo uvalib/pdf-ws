@@ -410,7 +410,7 @@ func statusHandler(c *gin.Context) {
 	errorFile := fmt.Sprintf("%s/fail.txt", pdf.workDir)
 	if _, err := os.Stat(errorFile); err == nil {
 		c.String(http.StatusOK, "FAILED")
-		os.RemoveAll(pdf.workDir)
+		//os.RemoveAll(pdf.workDir)
 		return
 	}
 
