@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -14,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/gin-gonic/gin"
 )
 
 type pdfRequest struct {
@@ -59,16 +60,14 @@ func getWorkDir(subDir string) string {
 /**
  * Handle a request for a PDF of page images
  */
-func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	logger.Printf("%s %s", r.Method, r.RequestURI)
-
+func generateHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
-	pdf.req.pid = params.ByName("pid")
-	pdf.req.unit = r.URL.Query().Get("unit")
-	pdf.req.pages = r.URL.Query().Get("pages")
-	pdf.req.token = r.URL.Query().Get("token")
-	pdf.req.embed = r.URL.Query().Get("embed")
+	pdf.req.pid = c.Param("pid")
+	pdf.req.unit = c.GetString("unit")
+	pdf.req.pages = c.GetString("pages")
+	pdf.req.token = c.GetString("token")
+	pdf.req.embed = c.GetString("embed")
 
 	pdf.subDir = pdf.req.pid
 
@@ -76,8 +75,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	if pdf.req.pages != "" {
 		if pdf.req.token == "" {
 			logger.Printf("Request for partial PDF is missing a token")
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Missing token")
+			c.String(http.StatusBadRequest, "Missing token")
 			return
 		}
 		token = pdf.req.token
@@ -97,9 +95,13 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		// path already exists; don't start another request, just treat
 		// this one is if it was successful and render the ajax page
 		if pdf.embed {
-			fmt.Fprintf(w, "ok")
+			c.String(http.StatusOK, "ok")
 		} else {
-			renderAjaxPage(pdf.workSubDir, pdf.req.pid, w)
+			if ajax, err := renderAjaxPage(pdf.workSubDir, pdf.req.pid); err != nil {
+				c.String(http.StatusInternalServerError, err.Error())
+			} else {
+				c.String(http.StatusOK, ajax)
+            }
 		}
 		return
 	}
@@ -110,8 +112,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	if apiErr != nil {
 		logger.Printf("Tracksys API error: [%s]", apiErr.Error())
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, fmt.Sprintf("ERROR: Could not retrieve PID info: [%s]", apiErr.Error()))
+		c.String(http.StatusNotFound, fmt.Sprintf("ERROR: Could not retrieve PID info: [%s]", apiErr.Error()))
 		return
 	}
 
@@ -132,27 +133,32 @@ func generateHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	// Render a simple ok message or kick an ajax polling loop
 	if pdf.embed {
-		fmt.Fprintf(w, "ok")
+		c.String(http.StatusOK, "ok")
 	} else {
-		renderAjaxPage(pdf.workSubDir, pdf.req.pid, w)
+		if ajax, err := renderAjaxPage(pdf.workSubDir, pdf.req.pid); err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			c.String(http.StatusOK, ajax)
+        }
 	}
 }
 
 /*
  * Render a simple html page that will poll for status of this PDF, and download it when done
  */
-func renderAjaxPage(workSubDir string, pid string, w http.ResponseWriter) {
+func renderAjaxPage(workSubDir string, pid string) (string, error) {
 	varmap := map[string]interface{}{
 		"pid":   pid,
 		"token": workSubDir,
 	}
 	index := fmt.Sprintf("%s/index.html", config.templateDir.value)
 	tmpl, _ := template.ParseFiles(index)
-	err := tmpl.ExecuteTemplate(w, "index.html", varmap)
+	var b bytes.Buffer
+	err := tmpl.ExecuteTemplate(&b, "index.html", varmap)
 	if err != nil {
-		logger.Printf("Unable to render ajax polling page for %s: %s", pid, err.Error())
-		fmt.Fprintf(w, "Unable to render ajax polling page for %s: %s", pid, err.Error())
+		return "", fmt.Errorf("Unable to render ajax polling page for %s: %s", pid, err.Error())
 	}
+	return b.String(), nil
 }
 
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
@@ -232,7 +238,7 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	header := `This resource was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)`
 
-	logo := fmt.Sprintf("%s/UVALIB_inline_black_web.png", config.assetsDir.value)
+	logo := fmt.Sprintf("%s/UVALIB_primary_black_web.png", config.assetsDir.value)
 
 	doc := pdf.solr.Response.Docs[0]
 
@@ -379,14 +385,12 @@ func generatePdf(pdf pdfInfo) {
 	exec.Command("rm", jpgFiles...).Run()
 }
 
-func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	logger.Printf("%s %s", r.Method, r.RequestURI)
-
+func statusHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
-	pdf.req.pid = params.ByName("pid")
-	pdf.req.unit = r.URL.Query().Get("unit")
-	pdf.req.token = r.URL.Query().Get("token")
+	pdf.req.pid = c.Param("pid")
+	pdf.req.unit = c.GetString("unit")
+	pdf.req.token = c.GetString("token")
 
 	pdf.subDir = pdf.req.pid
 
@@ -394,19 +398,18 @@ func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	if _, err := os.Stat(pdf.workDir); err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "Not found")
+		c.String(http.StatusNotFound, "Not found")
 		return
 	}
 
 	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", pdf.workDir)); err == nil {
-		fmt.Fprintf(w, "READY")
+		c.String(http.StatusOK, "READY")
 		return
 	}
 
 	errorFile := fmt.Sprintf("%s/fail.txt", pdf.workDir)
 	if _, err := os.Stat(errorFile); err == nil {
-		fmt.Fprintf(w, "FAILED")
+		c.String(http.StatusOK, "FAILED")
 		os.RemoveAll(pdf.workDir)
 		return
 	}
@@ -414,21 +417,19 @@ func statusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	progressFile := fmt.Sprintf("%s/progress.txt", pdf.workDir)
 	prog, err := ioutil.ReadFile(progressFile)
 	if err != nil {
-		fmt.Fprintf(w, "PROCESSING")
+		c.String(http.StatusOK, "PROCESSING")
 		return
 	}
 
-	fmt.Fprintf(w, "%s", string(prog))
+	c.String(http.StatusOK, string(prog))
 }
 
-func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	logger.Printf("%s %s", r.Method, r.RequestURI)
-
+func downloadHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
-	pdf.req.pid = params.ByName("pid")
-	pdf.req.unit = r.URL.Query().Get("unit")
-	pdf.req.token = r.URL.Query().Get("token")
+	pdf.req.pid = c.Param("pid")
+	pdf.req.unit = c.GetString("unit")
+	pdf.req.token = c.GetString("token")
 
 	pdf.subDir = pdf.req.pid
 
@@ -436,22 +437,19 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	if _, err := os.Stat(pdf.workDir); err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "Not found")
+		c.String(http.StatusNotFound, "Not found")
 		return
 	}
 
 	/* get path of file to send from the done file */
 	f, err := os.OpenFile(fmt.Sprintf("%s/done.txt", pdf.workDir), os.O_RDONLY, 0666)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "Not found")
+		c.String(http.StatusNotFound, "Not found")
 		return
 	}
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Unable to find PDF for this PID")
+		c.String(http.StatusInternalServerError, "Unable to find PDF for this PID")
 		return
 	}
 
@@ -470,38 +468,38 @@ func downloadHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	in, err := os.Open(pdfFile)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Unable to open PDF for this PID")
+		c.String(http.StatusInternalServerError, "Unable to open PDF for this PID")
 		return
 	}
 	defer in.Close()
 
 	stat, staterr := in.Stat()
 	if staterr != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Unable to stat PDF for this PID")
+		c.String(http.StatusInternalServerError, "Unable to stat PDF for this PID")
 		return
 	}
 
 	logger.Printf("Sending %s to client with size %d", pdfFile, stat.Size())
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.pdf", pdf.req.pid))
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Length", fmt.Sprint(stat.Size()))
+	contentLength := stat.Size()
+	contentType := "application/pdf"
+	fileName := fmt.Sprintf("%s.pdf", pdf.req.pid)
 
-	io.Copy(w, in)
+	extraHeaders := map[string]string{
+		"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fileName),
+	}
+
+	c.DataFromReader(http.StatusOK, contentLength, contentType, in, extraHeaders)
 
 	logger.Printf("PDF download for %s completed successfully", pdf.req.pid)
 }
 
-func deleteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	logger.Printf("%s %s", r.Method, r.RequestURI)
-
+func deleteHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
-	pdf.req.pid = params.ByName("pid")
-	pdf.req.unit = r.URL.Query().Get("unit")
-	pdf.req.token = r.URL.Query().Get("token")
+	pdf.req.pid = c.Param("pid")
+	pdf.req.unit = c.GetString("unit")
+	pdf.req.token = c.GetString("token")
 
 	pdf.subDir = pdf.req.pid
 
@@ -509,9 +507,9 @@ func deleteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
 	if err := os.RemoveAll(pdf.workDir); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "ERROR")
+		c.String(http.StatusBadRequest, "ERROR")
 		return
 	}
-	fmt.Fprintf(w, "DELETED")
+
+	c.String(http.StatusOK, "DELETED")
 }
