@@ -101,7 +101,7 @@ func generateHandler(c *gin.Context) {
 				c.String(http.StatusInternalServerError, err.Error())
 			} else {
 				c.String(http.StatusOK, ajax)
-            }
+			}
 		}
 		return
 	}
@@ -139,7 +139,7 @@ func generateHandler(c *gin.Context) {
 			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			c.String(http.StatusOK, ajax)
-        }
+		}
 	}
 }
 
@@ -350,27 +350,31 @@ func generatePdf(pdf pdfInfo) {
 
 	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
-	args := []string{"-x", cmd, "-o", pdfFile, "-n", "50"}
+	args := []string{"-o", pdfFile, "-n", "50"}
 	args = append(args, coverPageArgs...)
 	args = append(args, "--")
 	args = append(args, jpgFiles...)
 
-	logger.Printf("command: bash %#v", args)
+	out, convErr := exec.Command(cmd, args...).CombinedOutput()
 
-	out, convErr := exec.Command("bash", args...).CombinedOutput()
+	cf, _ := os.OpenFile(fmt.Sprintf("%s/convert.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
+	defer cf.Close()
+	if _, err := cf.WriteString(string(out)); err != nil {
+		logger.Printf("Unable to write conversion log file : %s", err.Error())
+	}
 
 	if convErr != nil {
 		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(convErr.Error()); err != nil {
-			logger.Printf("Unable to write error file : %s\n\nscript output:\n\n%s", err.Error(), string(out))
+			logger.Printf("Unable to write error file : %s", err.Error())
 		}
 	} else {
 		logger.Printf("Generated PDF : %s", pdfFile)
-		ef, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
-		defer ef.Close()
-		if _, err := ef.WriteString(pdfFile); err != nil {
+		df, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
+		defer df.Close()
+		if _, err := df.WriteString(pdfFile); err != nil {
 			logger.Printf("Unable to write done file : %s", err.Error())
 		}
 	}
