@@ -40,6 +40,49 @@ function get_next_pdf ()
 	pdf="$(printf "partial-%04d.pdf" "$count")"
 }
 
+function create_section ()
+{
+	mode="$1"
+	data="$2"
+	file="$3"
+
+	touch "$file"
+
+	if [ "$data" = "" ]; then
+		echo "0"
+		return
+	fi
+
+	case $mode in
+		text )
+			convert \
+				-size "${capwidth}x" \
+				-gravity center \
+				-fill black \
+				-background "$bkg" \
+				-font "$font" \
+				-pointsize "$pointreg" \
+				-page "+${capmargin}+${yoffset}" \
+				caption:"${data}" \
+				"$file"
+			;;
+
+		logo )
+			convert \
+				-page "+${logoinset}+${yoffset}" \
+				"$data" \
+				logo.miff
+			;;
+	esac
+
+	if [ ! -f "$file" ]; then
+		echo "0"
+		return
+	fi
+
+	identify -format "%h" "$file"
+}
+
 function create_cover_image ()
 {
 	echo "creating cover page..."
@@ -67,28 +110,19 @@ function create_cover_image ()
 	bottommargin="50"
 	yoffset="$topmargin"
 
-	convert -size "${capwidth}x" -gravity center -fill black -background "$bkg" -font "$font" -pointsize "$pointreg" \
-		-page "+${capmargin}+${yoffset}" caption:"${header}" header.miff
-	ylast="$(identify -format "%h" header.miff)"
+	ylast="$(create_section text "$header" header.miff)"
 	(( yoffset += 100 + "$ylast" ))
 
-	convert -page "+${logoinset}+${yoffset}" "$logo" logo.miff
-	ylast="$(identify -format "%h" logo.miff)"
+	ylast="$(create_section logo "$logo" logo.miff)"
 	(( yoffset += 100 + "$ylast" ))
 
-	convert -size "${capwidth}x" -gravity center -fill black -background "$bkg" -font "$font" -pointsize "$pointbig" \
-		-page "+${capmargin}+${yoffset}" caption:"${title}" title.miff
-	ylast="$(identify -format "%h" title.miff)"
+	ylast="$(create_section text "$title" title.miff)"
 	(( yoffset += "$ylast" ))
 
-	convert -size "${capwidth}x" -gravity center -fill black -background "$bkg" -font "$font" -pointsize "$pointreg" \
-		-page "+${capmargin}+${yoffset}" caption:"${author}" author.miff
-	ylast="$(identify -format "%h" author.miff)"
+	ylast="$(create_section text "$author" author.miff)"
 	(( yoffset += 100 + "$ylast" ))
 
-	convert -size "${capwidth}x" -gravity center -fill black -background "$bkg" -font "$font" -pointsize "$pointreg" \
-		-page "+${capmargin}+${yoffset}" caption:"${footer}" footer.miff
-	ylast="$(identify -format "%h" footer.miff)"
+	ylast="$(create_section text "$footer" footer.miff)"
 	(( yoffset += "$bottommargin" + "$ylast" ))
 
 	# grow the page if necessary
@@ -205,7 +239,7 @@ if [ "$cover" = "y" ]; then
 	# validate arguments
 	[ ! -f "$logo" ] && die "logo file does not exist: [$logo]"
 
-	for var in header author title footer; do
+	for var in header title footer; do
 		val="${!var}"
 		[ "$val" = "" ] && die "missing $var: [$val]"
 	done
