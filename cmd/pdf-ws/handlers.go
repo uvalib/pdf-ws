@@ -100,7 +100,7 @@ func generateHandler(c *gin.Context) {
 			if ajax, err := renderAjaxPage(pdf.workSubDir, pdf.req.pid); err != nil {
 				c.String(http.StatusInternalServerError, err.Error())
 			} else {
-				c.String(http.StatusOK, ajax)
+				c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(ajax))
 			}
 		}
 		return
@@ -138,7 +138,7 @@ func generateHandler(c *gin.Context) {
 		if ajax, err := renderAjaxPage(pdf.workSubDir, pdf.req.pid); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 		} else {
-			c.String(http.StatusOK, ajax)
+			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(ajax))
 		}
 	}
 }
