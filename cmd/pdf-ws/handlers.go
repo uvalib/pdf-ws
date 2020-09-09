@@ -64,10 +64,10 @@ func generateHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.pages = c.GetString("pages")
-	pdf.req.token = c.GetString("token")
-	pdf.req.embed = c.GetString("embed")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.pages = c.Query("pages")
+	pdf.req.token = c.Query("token")
+	pdf.req.embed = c.Query("embed")
 
 	pdf.subDir = pdf.req.pid
 
@@ -395,8 +395,8 @@ func statusHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.token = c.GetString("token")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.token = c.Query("token")
 
 	pdf.subDir = pdf.req.pid
 
@@ -434,8 +434,8 @@ func downloadHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.token = c.GetString("token")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.token = c.Query("token")
 
 	pdf.subDir = pdf.req.pid
 
@@ -504,8 +504,8 @@ func deleteHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.token = c.GetString("token")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.token = c.Query("token")
 
 	pdf.subDir = pdf.req.pid
 
