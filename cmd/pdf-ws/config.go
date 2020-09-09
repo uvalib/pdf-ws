@@ -27,7 +27,6 @@ type configData struct {
 	tsApiHost                configStringItem
 	tsApiGetPidTemplate      configStringItem
 	tsApiGetManifestTemplate configStringItem
-	jp2kDir                  configStringItem
 	archiveDir               configStringItem
 	storageDir               configStringItem
 	scriptDir                configStringItem
@@ -45,7 +44,6 @@ func init() {
 	config.tsApiHost = configStringItem{value: "", configItem: configItem{flag: "H", env: "PDFWS_TRACKSYS_API_HOST", desc: "tracksys host"}}
 	config.tsApiGetPidTemplate = configStringItem{value: "", configItem: configItem{flag: "P", env: "PDFWS_TRACKSYS_API_GET_PID_TEMPLATE", desc: "tracksys api get pid template"}}
 	config.tsApiGetManifestTemplate = configStringItem{value: "", configItem: configItem{flag: "M", env: "PDFWS_TRACKSYS_API_GET_MANIFEST_TEMPLATE", desc: "tracksys api get manifest template"}}
-	config.jp2kDir = configStringItem{value: "", configItem: configItem{flag: "j", env: "PDFWS_JP2K_DIR", desc: "jp2k directory"}}
 	config.archiveDir = configStringItem{value: "", configItem: configItem{flag: "m", env: "PDFWS_ARCHIVE_DIR", desc: "archival tif mount directory"}}
 	config.storageDir = configStringItem{value: "", configItem: configItem{flag: "t", env: "PDFWS_PDF_STORAGE_DIR", desc: "pdf storage directory"}}
 	config.scriptDir = configStringItem{value: "", configItem: configItem{flag: "r", env: "PDFWS_SCRIPT_DIR", desc: "helper script directory"}}
@@ -87,7 +85,6 @@ func getConfigValues() {
 	flagStringVar(&config.tsApiHost)
 	flagStringVar(&config.tsApiGetPidTemplate)
 	flagStringVar(&config.tsApiGetManifestTemplate)
-	flagStringVar(&config.jp2kDir)
 	flagStringVar(&config.archiveDir)
 	flagStringVar(&config.storageDir)
 	flagStringVar(&config.scriptDir)
@@ -103,7 +100,6 @@ func getConfigValues() {
 	// die if any of them are not set
 	configOK := true
 	configOK = ensureConfigStringSet(&config.listenPort) && configOK
-	configOK = ensureConfigStringSet(&config.jp2kDir) && configOK
 	configOK = ensureConfigStringSet(&config.archiveDir) && configOK
 	configOK = ensureConfigStringSet(&config.storageDir) && configOK
 	configOK = ensureConfigStringSet(&config.scriptDir) && configOK
@@ -122,7 +118,6 @@ func getConfigValues() {
 	logger.Printf("[CONFIG] tsApiHost                 = [%s]", config.tsApiHost.value)
 	logger.Printf("[CONFIG] tsApiGetPidTemplate       = [%s]", config.tsApiGetPidTemplate.value)
 	logger.Printf("[CONFIG] tsApiGetManifestTemplate  = [%s]", config.tsApiGetManifestTemplate.value)
-	logger.Printf("[CONFIG] jp2kDir                   = [%s]", config.jp2kDir.value)
 	logger.Printf("[CONFIG] archiveDir                = [%s]", config.archiveDir.value)
 	logger.Printf("[CONFIG] storageDir                = [%s]", config.storageDir.value)
 	logger.Printf("[CONFIG] scriptDir                 = [%s]", config.scriptDir.value)
