@@ -38,7 +38,7 @@ CMD scripts/entry.sh
 
 # Move in necessary assets
 COPY package/data/container_bash_profile /home/webservice/.profile
-COPY package/scripts/entry.sh $APP_HOME/scripts/
+COPY package/scripts/entry.sh scripts/* $APP_HOME/scripts/
 COPY web/* $APP_HOME/web/
 COPY assets/* $APP_HOME/assets/
 COPY --from=builder /build/bin/pdf-ws.linux $APP_HOME/bin/pdf-ws
