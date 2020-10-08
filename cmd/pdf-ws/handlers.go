@@ -243,10 +243,10 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 	doc := pdf.solr.Response.Docs[0]
 
 	// use first entry for these fields, if available
-	title := firstElementOf(doc.TitleDisplay)
+	title := firstElementOf(doc.Title)
 	author := firstElementOf(doc.AuthorFacet)
-	year := firstElementOf(doc.PublishedDateDisplay)
-	rightswrapper := firstElementOf(doc.RightsWrapperDisplay)
+	year := firstElementOf(doc.PublishedDaterange)
+	rightswrapper := firstElementOf(doc.RightsWrapper)
 
 	// filter out catalog link, convert http: to https:, remove period from terms link, and drop any trailing newline
 	rights := ""

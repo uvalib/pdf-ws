@@ -11,12 +11,12 @@ import (
 
 // a subset of Solr fields we are interested in
 type solrDoc struct {
-	Id                   string   `json:"id,omitempty"`
-	TitleDisplay         []string `json:"title_display,omitempty"`
-	AuthorFacet          []string `json:"author_facet,omitempty"`
-	PublishedDateDisplay []string `json:"published_date_display,omitempty"`
-	AlternateIdFacet     []string `json:"alternate_id_facet,omitempty"`
-	RightsWrapperDisplay []string `json:"rights_wrapper_display,omitempty"`
+	Id                 string   `json:"id,omitempty"`
+	Title              []string `json:"title_a,omitempty"`
+	AuthorFacet        []string `json:"author_facet_a,omitempty"`
+	PublishedDaterange []string `json:"published_daterange,omitempty"`
+	AlternateID        []string `json:"alternate_id_a,omitempty"`
+	RightsWrapper      []string `json:"rights_wrapper_a,omitempty"`
 }
 
 type solrResponse struct {
@@ -88,12 +88,12 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 
 	doc := solr.Response.Docs[0]
 
-	logger.Printf("id                     : [%s]", doc.Id)
-	logger.Printf("title_display          : [%s]", firstElementOf(doc.TitleDisplay))
-	logger.Printf("author_facet           : [%s]", firstElementOf(doc.AuthorFacet))
-	logger.Printf("published_date_display : [%s]", firstElementOf(doc.PublishedDateDisplay))
-	logger.Printf("alternate_id_facet     : [%s]", firstElementOf(doc.AlternateIdFacet))
-	logger.Printf("rights_wrapper_display : [%s]", firstElementOf(doc.RightsWrapperDisplay))
+	logger.Printf("id                  : [%s]", doc.Id)
+	logger.Printf("title_a             : [%s]", firstElementOf(doc.Title))
+	logger.Printf("author_facet_a      : [%s]", firstElementOf(doc.AuthorFacet))
+	logger.Printf("published_daterange : [%s]", firstElementOf(doc.PublishedDaterange))
+	logger.Printf("alternate_id_a      : [%s]", firstElementOf(doc.AlternateID))
+	logger.Printf("rights_wrapper_a    : [%s]", firstElementOf(doc.RightsWrapper))
 
 	return &solr, nil
 }
