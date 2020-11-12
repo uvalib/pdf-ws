@@ -557,11 +557,35 @@ func deleteHandler(c *gin.Context) {
 	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
-	if err := os.RemoveAll(pdf.workDir); err != nil {
-		logger.Printf("deleteHandler(): RemoveAll() failed for [%s]: %s", pdf.workDir, err.Error())
-		c.String(http.StatusBadRequest, "ERROR")
-		return
-	}
+	// ten attempts over a max of 825 seconds (13.75 minutes) should about do it
+	go removeDirectory(pdf.workDir, 10, 15)
 
 	c.String(http.StatusOK, "DELETED")
+}
+
+func removeDirectory(dir string, maxAttempts int, waitBetween int) {
+	// tries to remove the given directory, with arithmetic backoff retry logic.
+	// total time before giving up in worst case is:
+	// seconds = waitBetween * (maxAttempts * (maxAttempts + 1) / 2)
+
+	// this attempts to work around intermittent NFS "resource busy" errors,
+	// increasing the likelihood that the directory is eventually removed.
+
+	wait := 0
+
+	for i := 0; i < maxAttempts; i++ {
+		time.Sleep(time.Duration(wait) * time.Second)
+
+		if err := os.RemoveAll(dir); err != nil {
+			logger.Printf("delete attempt %d/%d for [%s] failed; err: %s", i+1, maxAttempts, dir, err.Error())
+		} else {
+			// we are done
+			logger.Printf("delete attempt %d/%d for [%s] succeeded", i+1, maxAttempts, dir)
+			return
+		}
+
+		wait += waitBetween
+	}
+
+	logger.Printf("delete FAILED for [%s]: max attempts reached", dir)
 }
