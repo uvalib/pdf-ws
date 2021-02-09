@@ -215,7 +215,8 @@ function merge_partial_pdfs ()
 {
 	echo "merging ${#pdfs[@]} pdfs into pdf: [$outpdf]"
 
-	outtitle="${outpdf/.pdf/}"
+	basepdf="$(basename "$outpdf")"
+	outtitle="${basepdf/.pdf/}"
 
 	gs \
 		-q \
