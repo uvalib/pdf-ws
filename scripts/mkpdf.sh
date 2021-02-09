@@ -87,7 +87,7 @@ function create_cover_image ()
 {
 	echo "creating cover page..."
 
-	width="1024"
+	width="924"
 	height="1320"
 
 	# captions with margins
@@ -142,30 +142,59 @@ function create_partial_pdfs ()
 
 	get_num_chunks "$numimages" "$numimagesperpdf"
 
-	# determine a reasonable maximum height for limiting oddly-shaped images such as spines
-	maxheight="$(identify "$@" 2>/dev/null | awk '
+	# one awk script to scare them all
+	read -a hstats < <(identify "$@" 2>/dev/null | awk '
 BEGIN {
-	maxh = 0;
-	limit = 1024 * 1.5;
-}
-
-function min(a, b)
-{
-	if (a < b)
-		return a
-	return b
+	sum = 0
+	sumsquares = 0
 }
 
 {
-	split($3, wh, "x");
-	h = wh[2];
-	if (h > maxh)
-		maxh = min(h, limit)
+	# main loop: collect image heights to calculate mean and stdandard deviation
+
+	# parse height from identify output.  example:
+	# filename.jpg JPEG 2656x3749 2656x3749+0+0 8-bit sRGB 1.31518MiB 0.000u 0:00.000
+	split($3, wh, "x")
+	h = wh[2]
+
+	sum += h
+	sumsquares += h^2
+
+	heights[NR] = h
 }
 
 END {
-	print maxh;
-}')"
+	# calculate image height limit based on mean + 2 standard deviations
+	mean = sum / NR
+	stddev = sqrt(sumsquares / NR - mean^2)
+	limit = int(mean + 2 * stddev)
+
+	# determine max image height that does not exceed limit
+	maxheight = 0
+	for (h in heights)
+		if (h > maxheight && h <= limit)
+			maxheight = h
+
+	# books seem to hover just under 4000 pixels, while
+	# newspapers and maps are closer to 6000 pixels.
+	# set a different dpi for each case, using
+	# the midpoint as a cutoff.
+	dpi = 150
+	if (maxheight > 5000)
+		dpi = 300
+
+	# set image size based on dpi
+	inches = 11
+	maxheight = inches * dpi
+
+	print maxheight, dpi
+}')
+
+	hmax="${hstats[0]}"
+	echo "height: ${hmax}"
+
+	hdpi="${hstats[1]}"
+	echo "dpi: ${hdpi}"
 
 	for ((i=1;i<="$chunks";i++)); do
 		ndx="$(expr \( \( "$i" - 1 \) \* "$numimagesperpdf" \) + 1)"
@@ -178,7 +207,7 @@ END {
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -resize "x${maxheight}>" -density 150 "${@:$ndx:$len}" "$pdf"
+		convert -resize "x${hmax}" -density "$hdpi" "${@:$ndx:$len}" "$pdf"
 	done
 }
 
@@ -186,7 +215,16 @@ function merge_partial_pdfs ()
 {
 	echo "merging ${#pdfs[@]} pdfs into pdf: [$outpdf]"
 
-	gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="$outpdf" "${pdfs[@]}"
+	outtitle="${outpdf/.pdf/}"
+
+	gs \
+		-q \
+		-dBATCH \
+		-dNOPAUSE \
+		-sDEVICE=pdfwrite \
+		-sOutputFile="$outpdf" \
+		"${pdfs[@]}" \
+		-c "[ /Title (${outtitle}) /DOCINFO pdfmark"
 }
 
 function do_cleanup ()
