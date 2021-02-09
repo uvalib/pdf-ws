@@ -202,7 +202,7 @@ func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string,
 
 	// run imagemagick to create scaled down jpg
 	cmd := "convert"
-	args := []string{fmt.Sprintf("%s[0]", srcFile), "-resize", "1024", jpgFileName}
+	args := []string{fmt.Sprintf("%s[0]", srcFile), "-resize", "x6000>", jpgFileName}
 	convErr := exec.Command(cmd, args...).Run()
 	if convErr != nil {
 		logger.Printf("Unable to generate JPG for %s", tifFile)
