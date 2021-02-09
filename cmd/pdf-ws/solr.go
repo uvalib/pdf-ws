@@ -50,6 +50,8 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	url := config.solrUrlTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
 
+	logger.Printf("solr url: [%s]", url)
+
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		logger.Printf("NewRequest() failed: %s", reqErr.Error())
