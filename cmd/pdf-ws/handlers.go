@@ -238,7 +238,7 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	header := `This resource was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)`
 
-	logo := fmt.Sprintf("%s/UVALIB_primary_black_web.png", config.assetsDir.value)
+	logo := fmt.Sprintf("%s/UVALIB_primary_black_print.png", config.assetsDir.value)
 
 	doc := pdf.solr.Response.Docs[0]
 

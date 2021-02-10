@@ -45,6 +45,9 @@ function create_section ()
 	mode="$1"
 	data="$2"
 	file="$3"
+	size="$4"
+
+	[ "$size" = "" ] && size="$pointreg"
 
 	touch "$file"
 
@@ -61,7 +64,7 @@ function create_section ()
 				-fill black \
 				-background "$bkg" \
 				-font "$font" \
-				-pointsize "$pointreg" \
+				-pointsize "$size" \
 				-page "+${capmargin}+${yoffset}" \
 				caption:"${data}" \
 				"$file"
@@ -87,18 +90,19 @@ function create_cover_image ()
 {
 	echo "creating cover page..."
 
-	width="924"
-	height="1320"
+	# 8.5" x 11" @ 300 DPI
+	width="2550"
+	height="3300"
 
 	# captions with margins
-	capmargin="100"
+	capmargin="250"
 	capwidth="$(expr "$width" - 2 \* "$capmargin")"
 
 	logowidth="$(identify -format "%w" "$logo")"
 	logoinset="$(expr \( "$width" - "$logowidth" \) / 2)"
 
-	pointreg="20"
-	pointbig="30"
+	pointreg="50"
+	pointbig="75"
 
 	font="Arial"
 	#font="TimesNewRoman"
@@ -106,21 +110,21 @@ function create_cover_image ()
 	bkg="none"
 
 	# top/bottom margins
-	topmargin="150"
-	bottommargin="50"
+	topmargin="375"
+	bottommargin="125"
 	yoffset="$topmargin"
 
 	ylast="$(create_section text "$header" header.miff)"
-	(( yoffset += 100 + "$ylast" ))
+	(( yoffset += 250 + "$ylast" ))
 
 	ylast="$(create_section logo "$logo" logo.miff)"
-	(( yoffset += 100 + "$ylast" ))
+	(( yoffset += 250 + "$ylast" ))
 
-	ylast="$(create_section text "$title" title.miff)"
+	ylast="$(create_section text "$title" title.miff "$pointbig")"
 	(( yoffset += "$ylast" ))
 
 	ylast="$(create_section text "$author" author.miff)"
-	(( yoffset += 100 + "$ylast" ))
+	(( yoffset += 250 + "$ylast" ))
 
 	ylast="$(create_section text "$footer" footer.miff)"
 	(( yoffset += "$bottommargin" + "$ylast" ))
@@ -134,15 +138,10 @@ function create_cover_image ()
 	rm -f *.miff
 }
 
-function create_partial_pdfs ()
+function determine_output_resolution ()
 {
-	echo "processing images..."
+	echo "determining image resolution..."
 
-	numimages="$#"
-
-	get_num_chunks "$numimages" "$numimagesperpdf"
-
-	# one awk script to scare them all
 	read -a hstats < <(identify "$@" 2>/dev/null | awk '
 BEGIN {
 	sum = 0
@@ -195,6 +194,15 @@ END {
 
 	hdpi="${hstats[1]}"
 	echo "dpi: ${hdpi}"
+}
+
+function create_partial_pdfs ()
+{
+	echo "processing images..."
+
+	numimages="$#"
+
+	get_num_chunks "$numimages" "$numimagesperpdf"
 
 	for ((i=1;i<="$chunks";i++)); do
 		ndx="$(expr \( \( "$i" - 1 \) \* "$numimagesperpdf" \) + 1)"
@@ -283,11 +291,15 @@ if [ "$cover" = "y" ]; then
 		[ "$val" = "" ] && die "missing $var: [$val]"
 	done
 
+	determine_output_resolution "$@"
+
 	create_cover_image
 
 	create_partial_pdfs "cover.png" "$@"
 else
 	# no cover page
+	determine_output_resolution "$@"
+
 	create_partial_pdfs "$@"
 fi
 
