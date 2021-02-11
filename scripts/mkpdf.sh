@@ -170,23 +170,24 @@ END {
 
 	# determine max image height that does not exceed limit
 	maxheight = 0
-	for (h in heights)
+	for (i in heights) {
+		h = heights[i]
 		if (h > maxheight && h <= limit)
 			maxheight = h
+	}
 
-	# books seem to hover just under 4000 pixels, while
-	# newspapers and maps are closer to 6000 pixels.
-	# set a different dpi for each case, using
-	# the midpoint as a cutoff.
+	# based on height in inches below, render anything above
+	# 300 DPI as 300 DPI, otherwise 150 DPI
+
+	inches = 11
+
 	dpi = 150
-	if (maxheight > 5000)
+	if (maxheight >= inches * 300)
 		dpi = 300
 
-	# set image size based on dpi
-	inches = 11
-	maxheight = inches * dpi
+	height = inches * dpi
 
-	print maxheight, dpi
+	print height, dpi
 }')
 
 	hmax="${hstats[0]}"
