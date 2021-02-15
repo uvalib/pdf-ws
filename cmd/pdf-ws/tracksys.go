@@ -40,7 +40,7 @@ func tsApiUrlForPidUnit(api, pid, unit string) string {
 		url = fmt.Sprintf("%s?unit=%s", url, unit)
 	}
 
-	//logger.Printf("url: [%s]", url)
+	logger.Printf("tracksys url: [%s]", url)
 
 	return url
 }
@@ -145,7 +145,7 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 		ts.Pages = append(ts.Pages, ts.Pid)
 		return &ts, nil
 
-	case strings.Contains(ts.Pid.Type, "metadata"):
+	case strings.Contains(ts.Pid.Type, "metadata") || ts.Pid.Type == "component":
 		var mfErr error
 
 		ts.Pages, mfErr = tsGetPagesFromManifest(pid, unit, pages)
