@@ -156,7 +156,7 @@ func renderAjaxPage(workSubDir string, pid string) (string, error) {
 	var b bytes.Buffer
 	err := tmpl.ExecuteTemplate(&b, "index.html", varmap)
 	if err != nil {
-		return "", fmt.Errorf("Unable to render ajax polling page for %s: %s", pid, err.Error())
+		return "", fmt.Errorf("unable to render ajax polling page for %s: %s", pid, err.Error())
 	}
 	return b.String(), nil
 }

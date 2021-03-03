@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"os"
-	"strconv"
 )
 
 type configItem struct {
@@ -14,11 +13,6 @@ type configItem struct {
 
 type configStringItem struct {
 	value string
-	configItem
-}
-
-type configBoolItem struct {
-	value bool
 	configItem
 }
 
@@ -50,12 +44,6 @@ func init() {
 	config.virgoURLTemplate = configStringItem{value: "", configItem: configItem{flag: "v", env: "PDFWS_VIRGO_URL_TEMPLATE", desc: "virgo url template"}}
 }
 
-func getBoolEnv(optEnv string) bool {
-	value, _ := strconv.ParseBool(os.Getenv(optEnv))
-
-	return value
-}
-
 func ensureConfigStringSet(item *configStringItem) bool {
 	isSet := true
 
@@ -69,10 +57,6 @@ func ensureConfigStringSet(item *configStringItem) bool {
 
 func flagStringVar(item *configStringItem) {
 	flag.StringVar(&item.value, item.flag, os.Getenv(item.env), item.desc)
-}
-
-func flagBoolVar(item *configBoolItem) {
-	flag.BoolVar(&item.value, item.flag, getBoolEnv(item.env), item.desc)
 }
 
 func getConfigValues() {

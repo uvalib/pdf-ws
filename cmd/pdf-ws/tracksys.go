@@ -39,13 +39,13 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		logger.Printf("NewRequest() failed: %s", reqErr.Error())
-		return nil, errors.New("Failed to create new manifest request")
+		return nil, errors.New("failed to create new manifest request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
 		logger.Printf("client.Do() failed: %s", resErr.Error())
-		return nil, errors.New("Failed to receive manifest response")
+		return nil, errors.New("failed to receive manifest response")
 	}
 
 	defer res.Body.Close()
@@ -57,7 +57,7 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &allPages); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("Failed to unmarshal manifest response: [%s]", buf)
+		return nil, fmt.Errorf("failed to unmarshal manifest response: [%s]", buf)
 	}
 
 	// filter pages, if requested
@@ -99,13 +99,13 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		logger.Printf("NewRequest() failed: %s", reqErr.Error())
-		return nil, errors.New("Failed to create new pid request")
+		return nil, errors.New("failed to create new pid request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
 		logger.Printf("client.Do() failed: %s", resErr.Error())
-		return nil, errors.New("Failed to receive pid response")
+		return nil, errors.New("failed to receive pid response")
 	}
 
 	defer res.Body.Close()
@@ -117,7 +117,7 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &ts.Pid); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("Failed to unmarshal pid response: [%s]", buf)
+		return nil, fmt.Errorf("failed to unmarshal pid response: [%s]", buf)
 	}
 	logger.Printf("Type            : [%s]", ts.Pid.Type)
 
@@ -137,9 +137,10 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 		return &ts, nil
 	}
 
-	return nil, fmt.Errorf("Unhandled PID type: [%s]", ts.Pid.Type)
+	return nil, fmt.Errorf("unhandled PID type: [%s]", ts.Pid.Type)
 }
 
+/*
 func tsGetMetadataPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 	ts, err := tsGetPidInfo(pid, unit, pages)
 
@@ -148,13 +149,14 @@ func tsGetMetadataPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 	}
 
 	if strings.Contains(ts.Pid.Type, "metadata") == false {
-		return nil, fmt.Errorf("PID is not a metadata type: [%s]", ts.Pid.Type)
+		return nil, fmt.Errorf("pid is not a metadata type: [%s]", ts.Pid.Type)
 	}
 
 	// ensure there are pages to process
 	if len(ts.Pages) == 0 {
-		return nil, errors.New("Metadata PID does not have any pages")
+		return nil, errors.New("metadata PID does not have any pages")
 	}
 
 	return ts, nil
 }
+*/

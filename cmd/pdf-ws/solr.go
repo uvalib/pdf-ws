@@ -55,13 +55,13 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		logger.Printf("NewRequest() failed: %s", reqErr.Error())
-		return nil, errors.New("Failed to create new solr request")
+		return nil, errors.New("failed to create new solr request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
 		logger.Printf("client.Do() failed: %s", resErr.Error())
-		return nil, errors.New("Failed to receive solr response")
+		return nil, errors.New("failed to receive solr response")
 	}
 
 	defer res.Body.Close()
@@ -73,7 +73,7 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &solr); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("Failed to unmarshal solr response: [%s]", buf)
+		return nil, fmt.Errorf("failed to unmarshal solr response: [%s]", buf)
 	}
 
 	logger.Printf("status                 : [%d]", solr.ResponseHeader.Status)
@@ -83,7 +83,7 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 
 	if solr.Response.NumFound == 0 || len(solr.Response.Docs) == 0 {
 		logger.Printf("No Solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))
-		return nil, errors.New("No Solr record found")
+		return nil, errors.New("no Solr record found")
 	}
 
 	// expecting just one record
