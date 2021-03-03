@@ -11,3 +11,4 @@ bin
 dist/
 env.*
 .idea
+run.sh
