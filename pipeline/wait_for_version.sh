@@ -40,7 +40,7 @@ END_TIME=$(expr $START_TIME + $TIMEOUT)
 # loop until timeout
 while true; do
 
-   VERSION=$($CURL_TOOL $ENDPOINT/version 2>/dev/null | $AWK_TOOL -F\" '{print $4}')
+   VERSION=$($CURL_TOOL $ENDPOINT/version 2>/dev/null | $AWK_TOOL -F\" '{print $8}')
 
    # if we did not get a version, tag as unknown
    if [ -z "$VERSION" ]; then
