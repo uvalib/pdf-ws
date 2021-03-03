@@ -13,3 +13,4 @@ env.*
 .idea
 buildtag.*
 package/scripts/*.ksh
+run.sh

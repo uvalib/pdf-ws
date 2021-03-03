@@ -162,7 +162,7 @@ func renderAjaxPage(workSubDir string, pid string) (string, error) {
 }
 
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
-	url := config.iiifUrlTemplate.value
+	url := config.iiifURLTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
 
 	logger.Printf("Downloading JPG from: %s", url)
@@ -263,7 +263,7 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	generated := fmt.Sprintf("Generation date: %s", time.Now().Format("2006-01-02"))
 
-	url := strings.Replace(config.virgoUrlTemplate.value, "{ID}", doc.Id, -1)
+	url := strings.Replace(config.virgoURLTemplate.value, "{ID}", doc.ID, -1)
 
 	citation := ""
 	if author != "" {
