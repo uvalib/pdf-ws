@@ -57,7 +57,7 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &allPages); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("Failed to unmarshal manifest response: [%s]", buf)
+		return nil, fmt.Errorf("failed to unmarshal manifest response: [%s]", buf)
 	}
 
 	// filter pages, if requested
@@ -117,7 +117,7 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &ts.Pid); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("Failed to unmarshal pid response: [%s]", buf)
+		return nil, fmt.Errorf("failed to unmarshal pid response: [%s]", buf)
 	}
 	logger.Printf("Type            : [%s]", ts.Pid.Type)
 
@@ -137,5 +137,5 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 		return &ts, nil
 	}
 
-	return nil, fmt.Errorf("Unhandled PID type: [%s]", ts.Pid.Type)
+	return nil, fmt.Errorf("unhandled PID type: [%s]", ts.Pid.Type)
 }
