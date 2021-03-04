@@ -45,6 +45,9 @@ function create_section ()
 	mode="$1"
 	data="$2"
 	file="$3"
+	size="$4"
+
+	[ "$size" = "" ] && size="$pointreg"
 
 	touch "$file"
 
@@ -61,7 +64,7 @@ function create_section ()
 				-fill black \
 				-background "$bkg" \
 				-font "$font" \
-				-pointsize "$pointreg" \
+				-pointsize "$size" \
 				-page "+${capmargin}+${yoffset}" \
 				caption:"${data}" \
 				"$file"
@@ -87,18 +90,19 @@ function create_cover_image ()
 {
 	echo "creating cover page..."
 
-	width="1024"
-	height="1320"
+	# 8.5" x 11" @ 300 DPI
+	width="2550"
+	height="3300"
 
 	# captions with margins
-	capmargin="100"
+	capmargin="250"
 	capwidth="$(expr "$width" - 2 \* "$capmargin")"
 
 	logowidth="$(identify -format "%w" "$logo")"
 	logoinset="$(expr \( "$width" - "$logowidth" \) / 2)"
 
-	pointreg="20"
-	pointbig="30"
+	pointreg="50"
+	pointbig="75"
 
 	font="Arial"
 	#font="TimesNewRoman"
@@ -106,21 +110,21 @@ function create_cover_image ()
 	bkg="none"
 
 	# top/bottom margins
-	topmargin="150"
-	bottommargin="50"
+	topmargin="375"
+	bottommargin="125"
 	yoffset="$topmargin"
 
 	ylast="$(create_section text "$header" header.miff)"
-	(( yoffset += 100 + "$ylast" ))
+	(( yoffset += 250 + "$ylast" ))
 
 	ylast="$(create_section logo "$logo" logo.miff)"
-	(( yoffset += 100 + "$ylast" ))
+	(( yoffset += 250 + "$ylast" ))
 
-	ylast="$(create_section text "$title" title.miff)"
+	ylast="$(create_section text "$title" title.miff "$pointbig")"
 	(( yoffset += "$ylast" ))
 
 	ylast="$(create_section text "$author" author.miff)"
-	(( yoffset += 100 + "$ylast" ))
+	(( yoffset += 250 + "$ylast" ))
 
 	ylast="$(create_section text "$footer" footer.miff)"
 	(( yoffset += "$bottommargin" + "$ylast" ))
@@ -134,6 +138,65 @@ function create_cover_image ()
 	rm -f *.miff
 }
 
+function determine_output_resolution ()
+{
+	echo "determining image resolution..."
+
+	read -a hstats < <(identify "$@" 2>/dev/null | awk '
+BEGIN {
+	sum = 0
+	sumsquares = 0
+}
+
+{
+	# main loop: collect image heights to calculate mean and stdandard deviation
+
+	# parse height from identify output.  example:
+	# filename.jpg JPEG 2656x3749 2656x3749+0+0 8-bit sRGB 1.31518MiB 0.000u 0:00.000
+	split($3, wh, "x")
+	h = wh[2]
+
+	sum += h
+	sumsquares += h^2
+
+	heights[NR] = h
+}
+
+END {
+	# calculate image height limit based on mean + 2 standard deviations
+	mean = sum / NR
+	stddev = sqrt(sumsquares / NR - mean^2)
+	limit = int(mean + 2 * stddev)
+
+	# determine max image height that does not exceed limit
+	maxheight = 0
+	for (i in heights) {
+		h = heights[i]
+		if (h > maxheight && h <= limit)
+			maxheight = h
+	}
+
+	# based on height in inches below, render anything above
+	# 300 DPI as 300 DPI, otherwise 150 DPI
+
+	inches = 11
+
+	dpi = 150
+	if (maxheight >= inches * 300)
+		dpi = 300
+
+	height = inches * dpi
+
+	print height, dpi
+}')
+
+	hmax="${hstats[0]}"
+	echo "height: ${hmax}"
+
+	hdpi="${hstats[1]}"
+	echo "dpi: ${hdpi}"
+}
+
 function create_partial_pdfs ()
 {
 	echo "processing images..."
@@ -141,31 +204,6 @@ function create_partial_pdfs ()
 	numimages="$#"
 
 	get_num_chunks "$numimages" "$numimagesperpdf"
-
-	# determine a reasonable maximum height for limiting oddly-shaped images such as spines
-	maxheight="$(identify "$@" 2>/dev/null | awk '
-BEGIN {
-	maxh = 0;
-	limit = 1024 * 1.5;
-}
-
-function min(a, b)
-{
-	if (a < b)
-		return a
-	return b
-}
-
-{
-	split($3, wh, "x");
-	h = wh[2];
-	if (h > maxh)
-		maxh = min(h, limit)
-}
-
-END {
-	print maxh;
-}')"
 
 	for ((i=1;i<="$chunks";i++)); do
 		ndx="$(expr \( \( "$i" - 1 \) \* "$numimagesperpdf" \) + 1)"
@@ -178,7 +216,7 @@ END {
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -resize "x${maxheight}>" -density 150 "${@:$ndx:$len}" "$pdf"
+		convert -resize "x${hmax}" -density "$hdpi" "${@:$ndx:$len}" "$pdf"
 	done
 }
 
@@ -186,7 +224,17 @@ function merge_partial_pdfs ()
 {
 	echo "merging ${#pdfs[@]} pdfs into pdf: [$outpdf]"
 
-	gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="$outpdf" "${pdfs[@]}"
+	basepdf="$(basename "$outpdf")"
+	outtitle="${basepdf/.pdf/}"
+
+	gs \
+		-q \
+		-dBATCH \
+		-dNOPAUSE \
+		-sDEVICE=pdfwrite \
+		-sOutputFile="$outpdf" \
+		"${pdfs[@]}" \
+		-c "[ /Title (${outtitle}) /DOCINFO pdfmark"
 }
 
 function do_cleanup ()
@@ -244,11 +292,15 @@ if [ "$cover" = "y" ]; then
 		[ "$val" = "" ] && die "missing $var: [$val]"
 	done
 
+	determine_output_resolution "$@"
+
 	create_cover_image
 
 	create_partial_pdfs "cover.png" "$@"
 else
 	# no cover page
+	determine_output_resolution "$@"
+
 	create_partial_pdfs "$@"
 fi
 

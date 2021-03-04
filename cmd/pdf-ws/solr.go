@@ -11,11 +11,12 @@ import (
 
 // a subset of Solr fields we are interested in
 type solrDoc struct {
-	ID                   string   `json:"id,omitempty"`
-	TitleDisplay         []string `json:"title_display,omitempty"`
-	AuthorFacet          []string `json:"author_facet,omitempty"`
-	PublishedDateDisplay []string `json:"published_date_display,omitempty"`
-	RightsWrapperDisplay []string `json:"rights_wrapper_display,omitempty"`
+	ID                 string   `json:"id,omitempty"`
+	Title              []string `json:"title_a,omitempty"`
+	AuthorFacet        []string `json:"author_facet_a,omitempty"`
+	PublishedDaterange []string `json:"published_daterange,omitempty"`
+	AlternateID        []string `json:"alternate_id_a,omitempty"`
+	RightsWrapper      []string `json:"rights_wrapper_a,omitempty"`
 }
 
 type solrResponse struct {
@@ -49,16 +50,18 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	url := config.solrURLTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
 
+	logger.Printf("solr url: [%s]", url)
+
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		logger.Printf("NewRequest() failed: %s", reqErr.Error())
-		return nil, errors.New("Failed to create new solr request")
+		return nil, errors.New("failed to create new solr request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
 		logger.Printf("client.Do() failed: %s", resErr.Error())
-		return nil, errors.New("Failed to receive solr response")
+		return nil, errors.New("failed to receive solr response")
 	}
 
 	defer res.Body.Close()
@@ -70,7 +73,7 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &solr); jErr != nil {
 		logger.Printf("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("Failed to unmarshal solr response: [%s]", buf)
+		return nil, fmt.Errorf("failed to unmarshal solr response: [%s]", buf)
 	}
 
 	logger.Printf("status                 : [%d]", solr.ResponseHeader.Status)
@@ -80,18 +83,19 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 
 	if solr.Response.NumFound == 0 || len(solr.Response.Docs) == 0 {
 		logger.Printf("No Solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))
-		return nil, errors.New("No Solr record found")
+		return nil, errors.New("no Solr record found")
 	}
 
 	// expecting just one record
 
 	doc := solr.Response.Docs[0]
 
-	logger.Printf("id                     : [%s]", doc.ID)
-	logger.Printf("title_display          : [%s]", firstElementOf(doc.TitleDisplay))
-	logger.Printf("author_facet           : [%s]", firstElementOf(doc.AuthorFacet))
-	logger.Printf("published_date_display : [%s]", firstElementOf(doc.PublishedDateDisplay))
-	logger.Printf("rights_wrapper_display : [%s]", firstElementOf(doc.RightsWrapperDisplay))
+	logger.Printf("id                  : [%s]", doc.ID)
+	logger.Printf("title_a             : [%s]", firstElementOf(doc.Title))
+	logger.Printf("author_facet_a      : [%s]", firstElementOf(doc.AuthorFacet))
+	logger.Printf("published_daterange : [%s]", firstElementOf(doc.PublishedDaterange))
+	logger.Printf("alternate_id_a      : [%s]", firstElementOf(doc.AlternateID))
+	logger.Printf("rights_wrapper_a    : [%s]", firstElementOf(doc.RightsWrapper))
 
 	return &solr, nil
 }

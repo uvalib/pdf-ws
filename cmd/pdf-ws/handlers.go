@@ -64,10 +64,10 @@ func generateHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.pages = c.GetString("pages")
-	pdf.req.token = c.GetString("token")
-	pdf.req.embed = c.GetString("embed")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.pages = c.Query("pages")
+	pdf.req.token = c.Query("token")
+	pdf.req.embed = c.Query("embed")
 
 	pdf.subDir = pdf.req.pid
 
@@ -91,7 +91,7 @@ func generateHandler(c *gin.Context) {
 	}
 
 	// See if destination already extsts...
-	if _, err := os.Stat(pdf.workDir); err == nil {
+	if progressInValidState(pdf.workDir) == true {
 		// path already exists; don't start another request, just treat
 		// this one is if it was successful and render the ajax page
 		if pdf.embed {
@@ -156,7 +156,7 @@ func renderAjaxPage(workSubDir string, pid string) (string, error) {
 	var b bytes.Buffer
 	err := tmpl.ExecuteTemplate(&b, "index.html", varmap)
 	if err != nil {
-		return "", fmt.Errorf("Unable to render ajax polling page for %s: %s", pid, err.Error())
+		return "", fmt.Errorf("unable to render ajax polling page for %s: %s", pid, err.Error())
 	}
 	return b.String(), nil
 }
@@ -202,7 +202,7 @@ func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string,
 
 	// run imagemagick to create scaled down jpg
 	cmd := "convert"
-	args := []string{fmt.Sprintf("%s[0]", srcFile), "-resize", "1024", jpgFileName}
+	args := []string{fmt.Sprintf("%s[0]", srcFile), "-resize", "x6000>", jpgFileName}
 	convErr := exec.Command(cmd, args...).Run()
 	if convErr != nil {
 		logger.Printf("Unable to generate JPG for %s", tifFile)
@@ -238,15 +238,15 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	header := `This resource was made available courtesy of the UVA Library.\n\nNOTICE: This material may be protected by copyright law (Title 17, United States Code)`
 
-	logo := fmt.Sprintf("%s/UVALIB_primary_black_web.png", config.assetsDir.value)
+	logo := fmt.Sprintf("%s/UVALIB_primary_black_print.png", config.assetsDir.value)
 
 	doc := pdf.solr.Response.Docs[0]
 
 	// use first entry for these fields, if available
-	title := firstElementOf(doc.TitleDisplay)
+	title := firstElementOf(doc.Title)
 	author := firstElementOf(doc.AuthorFacet)
-	year := firstElementOf(doc.PublishedDateDisplay)
-	rightswrapper := firstElementOf(doc.RightsWrapperDisplay)
+	year := firstElementOf(doc.PublishedDaterange)
+	rightswrapper := firstElementOf(doc.RightsWrapper)
 
 	// filter out catalog link, convert http: to https:, remove period from terms link, and drop any trailing newline
 	rights := ""
@@ -309,6 +309,12 @@ func generatePdf(pdf pdfInfo) {
 	// and newer pages will have a jp2k file available on the iiif server
 	var jpgFiles []string
 	for _, page := range pdf.ts.Pages {
+		// if working dir has been removed from under us, abort
+		if _, err := os.Stat(pdf.workDir); err != nil {
+			logger.Printf("working directory [%s] vanished; aborting", pdf.workDir)
+			return
+		}
+
 		logger.Printf("Get reduced size jpg for %s %s", page.Pid, page.Filename)
 
 		step++
@@ -379,7 +385,7 @@ func generatePdf(pdf pdfInfo) {
 		}
 	}
 
-	step++
+	step = steps
 	updateProgress(pdf.workDir, step, steps)
 
 	elapsed := time.Since(start).Seconds()
@@ -391,24 +397,64 @@ func generatePdf(pdf pdfInfo) {
 	exec.Command("rm", jpgFiles...).Run()
 }
 
+func progressInValidState(dir string) bool {
+	// valid states being: { in progress, done, failed }
+
+	// returns true if the specified directory exists, and contains
+	// at least one of the known progress/completion files.
+
+	// this is a helper to work around a race condition in which the
+	// directory exists but is empty, and no pdf is being generated.
+
+	if _, err := os.Stat(dir); err != nil {
+		return false
+	}
+
+	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", dir)); err == nil {
+		return true
+	}
+
+	if _, err := os.Stat(fmt.Sprintf("%s/fail.txt", dir)); err == nil {
+		return true
+	}
+
+	if _, err := os.Stat(fmt.Sprintf("%s/progress.txt", dir)); err == nil {
+		// at this point, there is the potential for an in-progress generation to
+		// have crashed without creating a done.txt or fail.txt file.  we ignore
+		// this possibility for now, and just assume the process is chugging along.
+		return true
+	}
+
+	// the directory might contain other files such as image/pdf data,
+	// but no need to keep it if we don't know what state it's in.
+	// just remove it.
+
+	if err := os.RemoveAll(dir); err != nil {
+		logger.Printf("progressInValidState(): RemoveAll() failed for [%s]: %s", dir, err.Error())
+	}
+
+	return false
+}
+
 func statusHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.token = c.GetString("token")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.token = c.Query("token")
 
 	pdf.subDir = pdf.req.pid
 
 	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
-	if _, err := os.Stat(pdf.workDir); err != nil {
+	if progressInValidState(pdf.workDir) == false {
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", pdf.workDir)); err == nil {
+	doneFile := fmt.Sprintf("%s/done.txt", pdf.workDir)
+	if _, err := os.Stat(doneFile); err == nil {
 		c.String(http.StatusOK, "READY")
 		return
 	}
@@ -416,7 +462,6 @@ func statusHandler(c *gin.Context) {
 	errorFile := fmt.Sprintf("%s/fail.txt", pdf.workDir)
 	if _, err := os.Stat(errorFile); err == nil {
 		c.String(http.StatusOK, "FAILED")
-		//os.RemoveAll(pdf.workDir)
 		return
 	}
 
@@ -434,15 +479,15 @@ func downloadHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.token = c.GetString("token")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.token = c.Query("token")
 
 	pdf.subDir = pdf.req.pid
 
 	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
-	if _, err := os.Stat(pdf.workDir); err != nil {
+	if progressInValidState(pdf.workDir) == false {
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
@@ -504,18 +549,43 @@ func deleteHandler(c *gin.Context) {
 	pdf := pdfInfo{}
 
 	pdf.req.pid = c.Param("pid")
-	pdf.req.unit = c.GetString("unit")
-	pdf.req.token = c.GetString("token")
+	pdf.req.unit = c.Query("unit")
+	pdf.req.token = c.Query("token")
 
 	pdf.subDir = pdf.req.pid
 
 	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, pdf.req.token)
 	pdf.workDir = getWorkDir(pdf.workSubDir)
 
-	if err := os.RemoveAll(pdf.workDir); err != nil {
-		c.String(http.StatusBadRequest, "ERROR")
-		return
-	}
+	// ten attempts over a max of 825 seconds (13.75 minutes) should about do it
+	go removeDirectory(pdf.workDir, 10, 15)
 
 	c.String(http.StatusOK, "DELETED")
+}
+
+func removeDirectory(dir string, maxAttempts int, waitBetween int) {
+	// tries to remove the given directory, with arithmetic backoff retry logic.
+	// total time before giving up in worst case is:
+	// seconds = waitBetween * (maxAttempts * (maxAttempts + 1) / 2)
+
+	// this attempts to work around intermittent NFS "resource busy" errors,
+	// increasing the likelihood that the directory is eventually removed.
+
+	wait := 0
+
+	for i := 0; i < maxAttempts; i++ {
+		time.Sleep(time.Duration(wait) * time.Second)
+
+		if err := os.RemoveAll(dir); err != nil {
+			logger.Printf("delete attempt %d/%d for [%s] failed; err: %s", i+1, maxAttempts, dir, err.Error())
+		} else {
+			// we are done
+			logger.Printf("delete attempt %d/%d for [%s] succeeded", i+1, maxAttempts, dir)
+			return
+		}
+
+		wait += waitBetween
+	}
+
+	logger.Printf("delete FAILED for [%s]: max attempts reached", dir)
 }
