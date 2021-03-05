@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -74,12 +75,12 @@ func generateHandler(c *gin.Context) {
 	token := ""
 	if pdf.req.pages != "" {
 		if pdf.req.token == "" {
-			logger.Printf("Request for partial PDF is missing a token")
+			log.Printf("Request for partial PDF is missing a token")
 			c.String(http.StatusBadRequest, "Missing token")
 			return
 		}
 		token = pdf.req.token
-		logger.Printf("Request for partial PDF including pages: %s", pdf.req.pages)
+		log.Printf("Request for partial PDF including pages: %s", pdf.req.pages)
 	}
 
 	pdf.workSubDir = getWorkSubDir(pdf.subDir, pdf.req.unit, token)
@@ -111,7 +112,7 @@ func generateHandler(c *gin.Context) {
 	pdf.ts, apiErr = tsGetPidInfo(pdf.req.pid, pdf.req.unit, pdf.req.pages)
 
 	if apiErr != nil {
-		logger.Printf("Tracksys API error: [%s]", apiErr.Error())
+		log.Printf("Tracksys API error: [%s]", apiErr.Error())
 		c.String(http.StatusNotFound, fmt.Sprintf("ERROR: Could not retrieve PID info: [%s]", apiErr.Error()))
 		return
 	}
@@ -119,12 +120,12 @@ func generateHandler(c *gin.Context) {
 	pdf.solr, apiErr = solrGetInfo(pdf.req.pid)
 
 	if apiErr != nil {
-		logger.Printf("WARNING: [%s] Solr error: [%s]", pdf.req.pid, apiErr.Error())
+		log.Printf("WARNING: [%s] Solr error: [%s]", pdf.req.pid, apiErr.Error())
 
 		if pdf.workDir == pdf.req.pid {
-			logger.Printf("WARNING: [%s] generating PDF without a cover page", pdf.req.pid)
+			log.Printf("WARNING: [%s] generating PDF without a cover page", pdf.req.pid)
 		} else {
-			logger.Printf("WARNING: [%s] generating PDF without a cover page in directory: %s", pdf.req.pid, pdf.workDir)
+			log.Printf("WARNING: [%s] generating PDF without a cover page in directory: %s", pdf.req.pid, pdf.workDir)
 		}
 	}
 
@@ -165,7 +166,7 @@ func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err er
 	url := config.iiifURLTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
 
-	logger.Printf("Downloading JPG from: %s", url)
+	log.Printf("Downloading JPG from: %s", url)
 	response, err := http.Get(url)
 	if err != nil || response.StatusCode != 200 {
 		err = errors.New("not found")
@@ -185,35 +186,12 @@ func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err er
 		return
 	}
 
-	logger.Printf(fmt.Sprintf("Successful download size: %d", s))
-	return
-}
-
-func jpgFromTif(outPath string, pid string, tifFile string) (jpgFileName string, err error) {
-	jpgFileName = fmt.Sprintf("%s/%s.jpg", outPath, pid)
-	bits := strings.Split(tifFile, "_")
-	srcFile := fmt.Sprintf("%s/%s/%s", config.archiveDir.value, bits[0], tifFile)
-	logger.Printf("Using archived file as source: %s", srcFile)
-	_, err = os.Stat(srcFile)
-	if err != nil {
-		logger.Printf("ERROR %s", err.Error())
-		return
-	}
-
-	// run imagemagick to create scaled down jpg
-	cmd := "convert"
-	args := []string{fmt.Sprintf("%s[0]", srcFile), "-resize", "x6000>", jpgFileName}
-	convErr := exec.Command(cmd, args...).Run()
-	if convErr != nil {
-		logger.Printf("Unable to generate JPG for %s", tifFile)
-	} else {
-		logger.Printf("Generated %s", jpgFileName)
-	}
+	log.Printf(fmt.Sprintf("Successful download size: %d", s))
 	return
 }
 
 func updateProgress(outPath string, step int, steps int) {
-	logger.Printf("%d%% (step %d of %d)", (100*step)/steps, step, steps)
+	log.Printf("%d%% (step %d of %d)", (100*step)/steps, step, steps)
 
 	f, _ := os.OpenFile(fmt.Sprintf("%s/progress.txt", outPath), os.O_CREATE|os.O_RDWR, 0666)
 	defer f.Close()
@@ -221,7 +199,7 @@ func updateProgress(outPath string, step int, steps int) {
 	w := bufio.NewWriter(f)
 
 	if _, err := fmt.Fprintf(w, "%d%%", (100*step)/steps); err != nil {
-		logger.Printf("Unable to write progress file : %s", err.Error())
+		log.Printf("Unable to write progress file : %s", err.Error())
 	}
 
 	w.Flush()
@@ -278,10 +256,10 @@ func getCoverPageArgs(pdf pdfInfo) []string {
 
 	footer := fmt.Sprintf("%s\n\n\n%s\n\n\n\n%s", generated, citation, libraryid)
 
-	logger.Printf("title  : [%s]", title)
-	logger.Printf("author : [%s]", author)
-	logger.Printf("year   : [%s]", year)
-	logger.Printf("verify : [%s] (%s)", pdf.workDir, url)
+	log.Printf("title  : [%s]", title)
+	log.Printf("author : [%s]", author)
+	log.Printf("year   : [%s]", year)
+	log.Printf("verify : [%s] (%s)", pdf.workDir, url)
 
 	args = []string{"-c", "-h", header, "-l", logo, "-t", title, "-a", author, "-f", footer}
 
@@ -311,11 +289,11 @@ func generatePdf(pdf pdfInfo) {
 	for _, page := range pdf.ts.Pages {
 		// if working dir has been removed from under us, abort
 		if _, err := os.Stat(pdf.workDir); err != nil {
-			logger.Printf("working directory [%s] vanished; aborting", pdf.workDir)
+			log.Printf("working directory [%s] vanished; aborting", pdf.workDir)
 			return
 		}
 
-		logger.Printf("Get reduced size jpg for %s %s", page.Pid, page.Filename)
+		log.Printf("Get reduced size jpg for %s %s", page.Pid, page.Filename)
 
 		step++
 		updateProgress(pdf.workDir, step, steps)
@@ -323,13 +301,8 @@ func generatePdf(pdf pdfInfo) {
 		// First, try to get a JPG file from the IIIF server
 		jpgFile, jpgErr := downloadJpgFromIiif(pdf.workDir, page.Pid)
 		if jpgErr != nil {
-			// not found. work from the archival tif file
-			logger.Printf("No JPG found on IIIF server; using archival tif...")
-			jpgFile, jpgErr = jpgFromTif(pdf.workDir, page.Pid, page.Filename)
-			if jpgErr != nil {
-				logger.Printf("Unable to find source image for masterFile %s. Skipping.", page.Pid)
-				continue
-			}
+			log.Printf("ERROR: No image for %s found on IIIF server", page.Pid)
+			continue
 		}
 		jpgFiles = append(jpgFiles, jpgFile)
 	}
@@ -337,18 +310,18 @@ func generatePdf(pdf pdfInfo) {
 	// check if we have any jpg files to process
 
 	if len(jpgFiles) == 0 {
-		logger.Printf("No jpg files to process")
+		log.Printf("No jpg files to process")
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString("No jpg files to process"); err != nil {
-			logger.Printf("Unable to write error file : %s", err.Error())
+			log.Printf("Unable to write error file : %s", err.Error())
 		}
 		return
 	}
 
 	// Now merge all of the files into 1 pdf
 	pdfFile := fmt.Sprintf("%s/%s.pdf", pdf.workDir, pdf.req.pid)
-	logger.Printf("Merging pages into single PDF %s", pdfFile)
+	log.Printf("Merging pages into single PDF %s", pdfFile)
 
 	// generate a cover page only if we have Solr info
 
@@ -366,22 +339,22 @@ func generatePdf(pdf pdfInfo) {
 	cf, _ := os.OpenFile(fmt.Sprintf("%s/convert.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 	defer cf.Close()
 	if _, err := cf.WriteString(string(out)); err != nil {
-		logger.Printf("Unable to write conversion log file : %s", err.Error())
+		log.Printf("Unable to write conversion log file : %s", err.Error())
 	}
 
 	if convErr != nil {
-		logger.Printf("Unable to generate merged PDF : %s", convErr.Error())
+		log.Printf("Unable to generate merged PDF : %s", convErr.Error())
 		ef, _ := os.OpenFile(fmt.Sprintf("%s/fail.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer ef.Close()
 		if _, err := ef.WriteString(convErr.Error()); err != nil {
-			logger.Printf("Unable to write error file : %s", err.Error())
+			log.Printf("Unable to write error file : %s", err.Error())
 		}
 	} else {
-		logger.Printf("Generated PDF : %s", pdfFile)
+		log.Printf("Generated PDF : %s", pdfFile)
 		df, _ := os.OpenFile(fmt.Sprintf("%s/done.txt", pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 		defer df.Close()
 		if _, err := df.WriteString(pdfFile); err != nil {
-			logger.Printf("Unable to write done file : %s", err.Error())
+			log.Printf("Unable to write done file : %s", err.Error())
 		}
 	}
 
@@ -390,7 +363,7 @@ func generatePdf(pdf pdfInfo) {
 
 	elapsed := time.Since(start).Seconds()
 
-	logger.Printf("%d pages processed in %0.2f seconds (%0.2f seconds/page)",
+	log.Printf("%d pages processed in %0.2f seconds (%0.2f seconds/page)",
 		len(jpgFiles), elapsed, elapsed/float64(len(jpgFiles)))
 
 	// Cleanup intermediate jpgFiles
@@ -430,7 +403,7 @@ func progressInValidState(dir string) bool {
 	// just remove it.
 
 	if err := os.RemoveAll(dir); err != nil {
-		logger.Printf("progressInValidState(): RemoveAll() failed for [%s]: %s", dir, err.Error())
+		log.Printf("progressInValidState(): RemoveAll() failed for [%s]: %s", dir, err.Error())
 	}
 
 	return false
@@ -508,9 +481,9 @@ func downloadHandler(c *gin.Context) {
 
 	/* seamless conversion from old locations */
 	if strings.HasPrefix(pdfFile, "tmp/") {
-		logger.Printf("Old location: [%s]", pdfFile)
+		log.Printf("Old location: [%s]", pdfFile)
 		pdfFile = strings.Replace(pdfFile, "tmp", config.storageDir.value, 1)
-		logger.Printf("New location: [%s]", pdfFile)
+		log.Printf("New location: [%s]", pdfFile)
 
 		/* write out new location */
 	}
@@ -530,7 +503,7 @@ func downloadHandler(c *gin.Context) {
 		return
 	}
 
-	logger.Printf("Sending %s to client with size %d", pdfFile, stat.Size())
+	log.Printf("Sending %s to client with size %d", pdfFile, stat.Size())
 
 	contentLength := stat.Size()
 	contentType := "application/pdf"
@@ -542,7 +515,7 @@ func downloadHandler(c *gin.Context) {
 
 	c.DataFromReader(http.StatusOK, contentLength, contentType, in, extraHeaders)
 
-	logger.Printf("PDF download for %s completed successfully", pdf.req.pid)
+	log.Printf("PDF download for %s completed successfully", pdf.req.pid)
 }
 
 func deleteHandler(c *gin.Context) {
@@ -577,15 +550,15 @@ func removeDirectory(dir string, maxAttempts int, waitBetween int) {
 		time.Sleep(time.Duration(wait) * time.Second)
 
 		if err := os.RemoveAll(dir); err != nil {
-			logger.Printf("delete attempt %d/%d for [%s] failed; err: %s", i+1, maxAttempts, dir, err.Error())
+			log.Printf("delete attempt %d/%d for [%s] failed; err: %s", i+1, maxAttempts, dir, err.Error())
 		} else {
 			// we are done
-			logger.Printf("delete attempt %d/%d for [%s] succeeded", i+1, maxAttempts, dir)
+			log.Printf("delete attempt %d/%d for [%s] succeeded", i+1, maxAttempts, dir)
 			return
 		}
 
 		wait += waitBetween
 	}
 
-	logger.Printf("delete FAILED for [%s]: max attempts reached", dir)
+	log.Printf("delete FAILED for [%s]: max attempts reached", dir)
 }

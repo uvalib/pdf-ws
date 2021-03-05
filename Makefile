@@ -1,8 +1,7 @@
 # project specific definitions
-#SRCDIR = cmd
+SRCDIR = cmd
 BINDIR = bin
 PACKAGE = pdf-ws
-SRCDIR = cmd/$(PACKAGE)
 
 # go commands
 GOCMD = go
@@ -34,14 +33,14 @@ ifeq ($(GIT_COMMIT),)
 endif
 
 # darwin-specific definitions
-GOENV_darwin = 
-GOFLAGS_darwin = 
-GOLINK_darwin = 
+GOENV_darwin =
+GOFLAGS_darwin =
+GOLINK_darwin =
 
 # linux-specific definitions
-GOENV_linux = 
-GOFLAGS_linux = 
-GOLINK_linux = 
+GOENV_linux =
+GOFLAGS_linux =
+GOLINK_linux =
 
 # extra flags
 GOENV_EXTRA = GOARCH=amd64

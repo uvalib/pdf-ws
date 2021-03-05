@@ -5,27 +5,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-const version = "2.1.0"
+const version = "2.2.0"
 
-var logger *log.Logger
 var client *http.Client
 
 /**
  * Main entry point for the web service
  */
 func main() {
-	logger = log.New(os.Stdout, "", log.LstdFlags)
-
-	// Load cfg
-	logger.Printf("===> pdf-ws staring up <===")
-	logger.Printf("Load configuration...")
+	log.Printf("===> pdf-ws staring up <===")
+	log.Printf("Load configuration...")
 	getConfigValues()
 
 	// load version details
@@ -57,7 +52,7 @@ func main() {
 	router.GET("/pdf/:pid/delete", deleteHandler)
 
 	portStr := fmt.Sprintf(":%s", config.listenPort.value)
-	logger.Printf("Start service on %s", portStr)
+	log.Printf("Start service on %s", portStr)
 
 	log.Fatal(router.Run(portStr))
 }
@@ -71,7 +66,7 @@ func rootHandler(c *gin.Context) {
 func versionHandler(c *gin.Context) {
 	output, jsonErr := json.Marshal(versionDetails)
 	if jsonErr != nil {
-		logger.Printf("Failed to serialize output: [%s]", jsonErr.Error())
+		log.Printf("Failed to serialize output: [%s]", jsonErr.Error())
 		c.String(http.StatusInternalServerError, "")
 		return
 	}
@@ -85,7 +80,7 @@ func healthCheckHandler(c *gin.Context) {
 
 	output, jsonErr := json.Marshal(health)
 	if jsonErr != nil {
-		logger.Printf("Failed to serialize output: [%s]", jsonErr.Error())
+		log.Printf("Failed to serialize output: [%s]", jsonErr.Error())
 		c.String(http.StatusInternalServerError, "")
 		return
 	}
