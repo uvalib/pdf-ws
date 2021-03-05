@@ -138,5 +138,5 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 		return &ts, nil
 	}
 
-	return nil, fmt.Errorf("Unhandled PID type: [%s]", ts.Pid.Type)
+	return nil, fmt.Errorf("unhandled PID type: [%s]", ts.Pid.Type)
 }
