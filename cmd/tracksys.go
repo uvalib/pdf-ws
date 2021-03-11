@@ -39,13 +39,13 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
-		log.Printf("NewRequest() failed: %s", reqErr.Error())
+		log.Printf("ERROR: NewRequest() failed: %s", reqErr.Error())
 		return nil, errors.New("failed to create new manifest request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
-		log.Printf("client.Do() failed: %s", resErr.Error())
+		log.Printf("ERROR: client.Do() failed: %s", resErr.Error())
 		return nil, errors.New("failed to receive manifest response")
 	}
 
@@ -57,7 +57,7 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &allPages); jErr != nil {
-		log.Printf("Unmarshal() failed: %s", jErr.Error())
+		log.Printf("ERROR: Unmarshal() failed: %s", jErr.Error())
 		return nil, fmt.Errorf("Failed to unmarshal manifest response: [%s]", buf)
 	}
 
@@ -84,7 +84,7 @@ func tsGetPagesFromManifest(pid, unit, pages string) ([]tsGenericPidInfo, error)
 			}
 		}
 
-		log.Printf("filtered pages from %d to %d", len(allPages), len(tsPages))
+		log.Printf("INFO: filtered pages from %d to %d", len(allPages), len(tsPages))
 	}
 
 	for i, p := range tsPages {
@@ -99,13 +99,13 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
-		log.Printf("NewRequest() failed: %s", reqErr.Error())
+		log.Printf("ERROR: NewRequest() failed: %s", reqErr.Error())
 		return nil, errors.New("failed to create new pid request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
-		log.Printf("client.Do() failed: %s", resErr.Error())
+		log.Printf("ERROR: client.Do() failed: %s", resErr.Error())
 		return nil, errors.New("failed to receive pid response")
 	}
 
@@ -117,10 +117,10 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &ts.Pid); jErr != nil {
-		log.Printf("Unmarshal() failed: %s", jErr.Error())
+		log.Printf("ERROR: Unmarshal() failed: %s", jErr.Error())
 		return nil, fmt.Errorf("Failed to unmarshal pid response: [%s]", buf)
 	}
-	log.Printf("Type            : [%s]", ts.Pid.Type)
+	log.Printf("INFO: Type            : [%s]", ts.Pid.Type)
 
 	if ts.Pid.Type == "master_file" {
 		log.Printf("    [page 1 / 1]  { [%s]  [%s]  [%s] }", ts.Pid.Pid, ts.Pid.Filename, ts.Pid.Title)
@@ -132,7 +132,7 @@ func tsGetPidInfo(pid, unit, pages string) (*tsPidInfo, error) {
 		var mfErr error
 		ts.Pages, mfErr = tsGetPagesFromManifest(pid, unit, pages)
 		if mfErr != nil {
-			log.Printf("tsGetPagesFromManifest() failed: [%s]", mfErr.Error())
+			log.Printf("ERROR: tsGetPagesFromManifest() failed: [%s]", mfErr.Error())
 			return nil, mfErr
 		}
 		return &ts, nil

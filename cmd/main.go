@@ -66,7 +66,7 @@ func rootHandler(c *gin.Context) {
 func versionHandler(c *gin.Context) {
 	output, jsonErr := json.Marshal(versionDetails)
 	if jsonErr != nil {
-		log.Printf("Failed to serialize output: [%s]", jsonErr.Error())
+		log.Printf("ERROR: failed to serialize output: [%s]", jsonErr.Error())
 		c.String(http.StatusInternalServerError, "")
 		return
 	}
@@ -80,7 +80,7 @@ func healthCheckHandler(c *gin.Context) {
 
 	output, jsonErr := json.Marshal(health)
 	if jsonErr != nil {
-		log.Printf("Failed to serialize output: [%s]", jsonErr.Error())
+		log.Printf("ERROR: failed to serialize output: [%s]", jsonErr.Error())
 		c.String(http.StatusInternalServerError, "")
 		return
 	}

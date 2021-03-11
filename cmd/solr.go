@@ -51,17 +51,17 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 	url := config.solrURLTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
 
-	log.Printf("solr url: [%s]", url)
+	log.Printf("INFO: solr url: [%s]", url)
 
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
-		log.Printf("NewRequest() failed: %s", reqErr.Error())
+		log.Printf("ERROR: NewRequest() failed: %s", reqErr.Error())
 		return nil, errors.New("failed to create new solr request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
-		log.Printf("client.Do() failed: %s", resErr.Error())
+		log.Printf("ERROR: client.Do() failed: %s", resErr.Error())
 		return nil, errors.New("failed to receive solr response")
 	}
 
@@ -73,17 +73,17 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &solr); jErr != nil {
-		log.Printf("Unmarshal() failed: %s", jErr.Error())
+		log.Printf("ERROR: Unmarshal() failed: %s", jErr.Error())
 		return nil, fmt.Errorf("failed to unmarshal solr response: [%s]", buf)
 	}
 
-	log.Printf("status                 : [%d]", solr.ResponseHeader.Status)
-	log.Printf("numFound               : [%d]", solr.Response.NumFound)
-	log.Printf("start                  : [%d]", solr.Response.Start)
-	log.Printf("len(docs)              : [%d]", len(solr.Response.Docs))
+	log.Printf("INFO: status                 : [%d]", solr.ResponseHeader.Status)
+	log.Printf("INFO: numFound               : [%d]", solr.Response.NumFound)
+	log.Printf("INFO: start                  : [%d]", solr.Response.Start)
+	log.Printf("INFO: len(docs)              : [%d]", len(solr.Response.Docs))
 
 	if solr.Response.NumFound == 0 || len(solr.Response.Docs) == 0 {
-		log.Printf("No Solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))
+		log.Printf("WARNING: no Solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))
 		return nil, errors.New("no Solr record found")
 	}
 
@@ -91,12 +91,12 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 
 	doc := solr.Response.Docs[0]
 
-	log.Printf("id                  : [%s]", doc.ID)
-	log.Printf("title_a             : [%s]", firstElementOf(doc.Title))
-	log.Printf("author_facet_a      : [%s]", firstElementOf(doc.AuthorFacet))
-	log.Printf("published_daterange : [%s]", firstElementOf(doc.PublishedDaterange))
-	log.Printf("alternate_id_a      : [%s]", firstElementOf(doc.AlternateID))
-	log.Printf("rights_wrapper_a    : [%s]", firstElementOf(doc.RightsWrapper))
+	log.Printf("INFO: id                  : [%s]", doc.ID)
+	log.Printf("INFO: title_a             : [%s]", firstElementOf(doc.Title))
+	log.Printf("INFO: author_facet_a      : [%s]", firstElementOf(doc.AuthorFacet))
+	log.Printf("INFO: published_daterange : [%s]", firstElementOf(doc.PublishedDaterange))
+	log.Printf("INFO: alternate_id_a      : [%s]", firstElementOf(doc.AlternateID))
+	log.Printf("INFO: rights_wrapper_a    : [%s]", firstElementOf(doc.RightsWrapper))
 
 	return &solr, nil
 }
