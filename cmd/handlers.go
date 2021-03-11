@@ -186,7 +186,7 @@ func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err er
 		return
 	}
 
-	log.Printf(fmt.Sprintf("INFO: successful download, size: %d", s))
+	log.Printf("INFO: successful download, size: %d", s)
 	return
 }
 
@@ -329,7 +329,7 @@ func generatePdf(pdf pdfInfo) {
 
 	// finally build helper script command and argument string
 	cmd := fmt.Sprintf("%s/mkpdf.sh", config.scriptDir.value)
-	args := []string{"-o", pdfFile, "-n", "50"}
+	args := []string{"-o", pdfFile, "-n", config.pdfChunkSize.value}
 	args = append(args, coverPageArgs...)
 	args = append(args, "--")
 	args = append(args, jpgFiles...)

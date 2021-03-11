@@ -27,6 +27,7 @@ type configData struct {
 	iiifURLTemplate  configStringItem
 	solrURLTemplate  configStringItem
 	virgoURLTemplate configStringItem
+	pdfChunkSize     configStringItem
 }
 
 var config configData
@@ -41,6 +42,7 @@ func init() {
 	config.iiifURLTemplate = configStringItem{value: "", configItem: configItem{flag: "i", env: "PDFWS_IIIF_URL_TEMPLATE", desc: "iiif url template"}}
 	config.solrURLTemplate = configStringItem{value: "", configItem: configItem{flag: "s", env: "PDFWS_SOLR_URL_TEMPLATE", desc: "solr url template"}}
 	config.virgoURLTemplate = configStringItem{value: "", configItem: configItem{flag: "v", env: "PDFWS_VIRGO_URL_TEMPLATE", desc: "virgo url template"}}
+	config.pdfChunkSize = configStringItem{value: "", configItem: configItem{flag: "c", env: "PDFWS_PDF_CHUNK_SIZE", desc: "pdf chunk size"}}
 }
 
 func ensureConfigStringSet(item *configStringItem) bool {
@@ -69,6 +71,7 @@ func getConfigValues() {
 	flagStringVar(&config.iiifURLTemplate)
 	flagStringVar(&config.solrURLTemplate)
 	flagStringVar(&config.virgoURLTemplate)
+	flagStringVar(&config.pdfChunkSize)
 
 	flag.Parse()
 
@@ -83,6 +86,7 @@ func getConfigValues() {
 	configOK = ensureConfigStringSet(&config.iiifURLTemplate) && configOK
 	configOK = ensureConfigStringSet(&config.solrURLTemplate) && configOK
 	configOK = ensureConfigStringSet(&config.virgoURLTemplate) && configOK
+	configOK = ensureConfigStringSet(&config.pdfChunkSize) && configOK
 
 	if configOK == false {
 		flag.Usage()
@@ -98,4 +102,5 @@ func getConfigValues() {
 	log.Printf("[CONFIG] iiifURLTemplate  = [%s]", config.iiifURLTemplate.value)
 	log.Printf("[CONFIG] solrURLTemplate  = [%s]", config.solrURLTemplate.value)
 	log.Printf("[CONFIG] virgoURLTemplate = [%s]", config.virgoURLTemplate.value)
+	log.Printf("[CONFIG] pdfChunkSize     = [%s]", config.pdfChunkSize.value)
 }
