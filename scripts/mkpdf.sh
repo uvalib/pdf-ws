@@ -67,14 +67,16 @@ function create_section ()
 				-pointsize "$size" \
 				-page "+${capmargin}+${yoffset}" \
 				caption:"${data}" \
-				"$file"
+				"$file" \
+				|| die "text section convert failed"
 			;;
 
 		logo )
 			convert \
 				-page "+${logoinset}+${yoffset}" \
 				"$data" \
-				logo.miff
+				logo.miff \
+				|| die "logo section convert failed"
 			;;
 	esac
 
@@ -133,7 +135,8 @@ function create_cover_image ()
 	[ "$yoffset" -gt "$height" ] && height="$yoffset"
 
 	cat header.miff logo.miff title.miff author.miff footer.miff \
-		| convert -size "${width}x${height}" xc:white - -flatten cover.png
+		| convert -size "${width}x${height}" xc:white - -flatten cover.png \
+		|| die "cover page convert failed"
 
 	rm -f *.miff
 }
@@ -216,7 +219,8 @@ function create_partial_pdfs ()
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -resize "x${hmax}" -density "$hdpi" "${@:$ndx:$len}" "$pdf"
+		convert -resize "x${hmax}" -density "$hdpi" "${@:$ndx:$len}" "$pdf" \
+			|| die "partial pdf convert failed"
 	done
 }
 
@@ -234,7 +238,8 @@ function merge_partial_pdfs ()
 		-sDEVICE=pdfwrite \
 		-sOutputFile="$outpdf" \
 		"${pdfs[@]}" \
-		-c "[ /Title (${outtitle}) /DOCINFO pdfmark"
+		-c "[ /Title (${outtitle}) /DOCINFO pdfmark" \
+		|| die "pdf merge failed"
 }
 
 function do_cleanup ()
@@ -245,18 +250,6 @@ function do_cleanup ()
 }
 
 ### parse command line
-
-# general arguments
-outpdf=""
-numimagesperpdf="50"
-
-# cover page arguments
-cover="n"
-header=""
-logo=""
-title=""
-author=""
-footer=""
 
 while [ "$#" -gt "0" ]; do
 	arg="$1"
