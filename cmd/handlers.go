@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -162,17 +161,50 @@ func renderAjaxPage(workSubDir string, pid string) (string, error) {
 	return b.String(), nil
 }
 
+func openURL(url string) (io.ReadCloser, error) {
+	maxTries := 5
+	backoff := 1
+
+	for i := 1; i <= maxTries; i++ {
+		h, err := http.Get(url)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if h.StatusCode == http.StatusOK {
+			return h.Body, nil
+		}
+
+		if h.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("received http status: %s", h.Status)
+		}
+
+		if i == maxTries {
+			log.Printf("open [%s] (try %d/%d): received status: %s; giving up", url, i, maxTries, h.Status)
+			return nil, fmt.Errorf("max tries reached")
+		}
+
+		log.Printf("open [%s] (try %d/%d): received status: %s; will try again in %d seconds...", url, i, maxTries, h.Status, backoff)
+
+		time.Sleep(time.Duration(backoff) * time.Second)
+		backoff *= 2
+	}
+
+	return nil, fmt.Errorf("max tries reached")
+}
+
 func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err error) {
 	url := config.iiifURLTemplate.value
 	url = strings.Replace(url, "{PID}", pid, -1)
 
 	log.Printf("INFO: downloading JPG from: %s", url)
-	response, err := http.Get(url)
-	if err != nil || response.StatusCode != 200 {
-		err = errors.New("not found")
+	body, err := openURL(url)
+	if err != nil {
+		log.Printf("open [%s] failed: %s", url, err.Error())
 		return
 	}
-	defer response.Body.Close()
+	defer body.Close()
 
 	jpgFileName = fmt.Sprintf("%s/%s.jpg", outPath, pid)
 	destFile, err := os.Create(jpgFileName)
@@ -181,7 +213,7 @@ func downloadJpgFromIiif(outPath string, pid string) (jpgFileName string, err er
 	}
 	defer destFile.Close()
 
-	s, err := io.Copy(destFile, response.Body)
+	s, err := io.Copy(destFile, body)
 	if err != nil {
 		return
 	}
