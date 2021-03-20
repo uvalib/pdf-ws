@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 )
 
-// a subset of Solr fields we are interested in
+// a subset of solr fields we are interested in
 type solrDoc struct {
 	ID                 string   `json:"id,omitempty"`
 	Title              []string `json:"title_a,omitempty"`
@@ -36,33 +35,22 @@ type solrInfo struct {
 	Response       solrResponse       `json:"response,omitempty"`
 }
 
-func firstElementOf(s []string) string {
-	// return first element of slice, or blank string if empty
-	val := ""
-
-	if len(s) > 0 {
-		val = s[0]
-	}
-
-	return val
-}
-
-func solrGetInfo(pid string) (*solrInfo, error) {
+func (c *clientContext) solrGetInfo() error {
 	url := config.solrURLTemplate.value
-	url = strings.Replace(url, "{PID}", pid, -1)
+	url = strings.Replace(url, "{PID}", c.req.pid, -1)
 
-	log.Printf("INFO: solr url: [%s]", url)
+	c.info("solr url: [%s]", url)
 
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
-		log.Printf("ERROR: NewRequest() failed: %s", reqErr.Error())
-		return nil, errors.New("failed to create new solr request")
+		c.err("NewRequest() failed: %s", reqErr.Error())
+		return errors.New("failed to create new solr request")
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
-		log.Printf("ERROR: client.Do() failed: %s", resErr.Error())
-		return nil, errors.New("failed to receive solr response")
+		c.err("client.Do() failed: %s", resErr.Error())
+		return errors.New("failed to receive solr response")
 	}
 
 	defer res.Body.Close()
@@ -73,30 +61,32 @@ func solrGetInfo(pid string) (*solrInfo, error) {
 
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &solr); jErr != nil {
-		log.Printf("ERROR: Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("failed to unmarshal solr response: [%s]", buf)
+		c.err("Unmarshal() failed: %s", jErr.Error())
+		return fmt.Errorf("failed to unmarshal solr response: [%s]", buf)
 	}
 
-	log.Printf("INFO: status                 : [%d]", solr.ResponseHeader.Status)
-	log.Printf("INFO: numFound               : [%d]", solr.Response.NumFound)
-	log.Printf("INFO: start                  : [%d]", solr.Response.Start)
-	log.Printf("INFO: len(docs)              : [%d]", len(solr.Response.Docs))
+	c.info("status                 : [%d]", solr.ResponseHeader.Status)
+	c.info("numFound               : [%d]", solr.Response.NumFound)
+	c.info("start                  : [%d]", solr.Response.Start)
+	c.info("len(docs)              : [%d]", len(solr.Response.Docs))
 
 	if solr.Response.NumFound == 0 || len(solr.Response.Docs) == 0 {
-		log.Printf("WARNING: no Solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))
-		return nil, errors.New("no Solr record found")
+		c.warn("no solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))
+		return errors.New("no solr record found")
 	}
 
 	// expecting just one record
 
 	doc := solr.Response.Docs[0]
 
-	log.Printf("INFO: id                  : [%s]", doc.ID)
-	log.Printf("INFO: title_a             : [%s]", firstElementOf(doc.Title))
-	log.Printf("INFO: author_facet_a      : [%s]", firstElementOf(doc.AuthorFacet))
-	log.Printf("INFO: published_daterange : [%s]", firstElementOf(doc.PublishedDaterange))
-	log.Printf("INFO: alternate_id_a      : [%s]", firstElementOf(doc.AlternateID))
-	log.Printf("INFO: rights_wrapper_a    : [%s]", firstElementOf(doc.RightsWrapper))
+	c.info("id                  : [%s]", doc.ID)
+	c.info("title_a             : [%s]", firstElementOf(doc.Title))
+	c.info("author_facet_a      : [%s]", firstElementOf(doc.AuthorFacet))
+	c.info("published_daterange : [%s]", firstElementOf(doc.PublishedDaterange))
+	c.info("alternate_id_a      : [%s]", firstElementOf(doc.AlternateID))
+	c.info("rights_wrapper_a    : [%s]", firstElementOf(doc.RightsWrapper))
 
-	return &solr, nil
+	c.pdf.solr = &solr
+
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -14,20 +15,22 @@ import (
 const version = "2.2.0"
 
 var client *http.Client
+var randomSource *rand.Rand
 
 /**
  * Main entry point for the web service
  */
 func main() {
-	log.Printf("===> pdf-ws staring up <===")
+	log.Printf("===> pdf-ws starting up <===")
 	log.Printf("Load configuration...")
 	getConfigValues()
 
 	// load version details
 	initVersion()
 
-	// initialize http client
+	// initialize http client and random source
 	client = &http.Client{Timeout: 10 * time.Second}
+	randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// Set routes and start server
 	gin.SetMode(gin.ReleaseMode)

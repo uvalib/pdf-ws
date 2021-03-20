@@ -44,6 +44,17 @@ func initVersion() {
 	}
 }
 
+func firstElementOf(s []string) string {
+	// return first element of slice, or blank string if empty
+	val := ""
+
+	if len(s) > 0 {
+		val = s[0]
+	}
+
+	return val
+}
+
 //
 // end of file
 //
