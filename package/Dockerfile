@@ -7,7 +7,8 @@ RUN apk update && apk upgrade && apk add make
 WORKDIR /build
 COPY go.mod go.sum Makefile ./
 COPY cmd ./cmd
-RUN make rebuild-docker
+ARG GIT_COMMIT
+RUN make rebuild-docker GIT_COMMIT="$GIT_COMMIT"
 
 #
 # build the target container
