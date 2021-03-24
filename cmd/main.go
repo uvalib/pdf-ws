@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const version = "2.2.0"
+const version = "2.3.0"
 
 var client *http.Client
 var randomSource *rand.Rand

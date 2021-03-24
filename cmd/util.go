@@ -7,12 +7,15 @@ import (
 	"strings"
 )
 
+// git commit used for this build; supplied at compile time
+var gitCommit string
+
 // structures
 
 type serviceVersion struct {
-	Version   string `json:"version,omitempty"`
-	Build     string `json:"build,omitempty"`
-	GoVersion string `json:"go_version,omitempty"`
+	BuildVersion string `json:"build,omitempty"`
+	GoVersion    string `json:"go_version,omitempty"`
+	GitCommit    string `json:"git_commit,omitempty"`
 }
 
 type healthcheckDetails struct {
@@ -38,9 +41,9 @@ func initVersion() {
 	}
 
 	versionDetails = &serviceVersion{
-		Version:   version,
-		Build:     buildVersion,
-		GoVersion: fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
+		BuildVersion: buildVersion,
+		GoVersion:    fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
+		GitCommit:    gitCommit,
 	}
 }
 
