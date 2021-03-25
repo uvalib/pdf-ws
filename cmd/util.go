@@ -59,7 +59,7 @@ func firstElementOf(s []string) string {
 	return val
 }
 
-func (c *clientContext) getWorkSubDir(pid, unit, token string) string {
+func getWorkSubDir(pid, unit, token string) string {
 	subDir := pid
 
 	switch {

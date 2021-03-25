@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -40,10 +41,18 @@ func generateHandler(ctx *gin.Context) {
 		return
 	}
 
-	// See if destination already extsts...
+	// see if a previous attempt failed; if so, transparently try again
+	if c.isFailed() == true {
+		c.info("found pdf in failed state; clearing it out and trying again")
+		if err := c.removeWorkDir(3, 5); err != nil {
+			c.warn("failed to clear out previous failure")
+		}
+	}
+
+	// See if destination already exists...
 	if c.progressInValidState() == true {
-		// path already exists; don't start another request, just treat
-		// this one is if it was successful and render the ajax page
+		// path already exists; don't start another request, just treat this one
+		// as if it was complete (whether successful or not) and render the ajax page
 		c.inProgress()
 		return
 	}
@@ -161,7 +170,9 @@ func (c *clientContext) downloadJpgFromIiif(pid string) (jpgFileName string, err
 }
 
 func (c *clientContext) updateProgress(step int, steps int) {
-	c.info("%d%% (step %d of %d)", (100*step)/steps, step, steps)
+	if steps > 0 {
+		c.info("%d%% (step %d of %d)", (100*step)/steps, step, steps)
+	}
 
 	f, _ := os.OpenFile(fmt.Sprintf("%s/progress.txt", c.pdf.workDir), os.O_CREATE|os.O_RDWR, 0666)
 	defer f.Close()
@@ -336,6 +347,27 @@ func (c *clientContext) generatePdf() {
 	exec.Command("rm", jpgFiles...).Run()
 }
 
+func (c *clientContext) isDone() bool {
+	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", c.pdf.workDir)); err == nil {
+		return true
+	}
+	return false
+}
+
+func (c *clientContext) isFailed() bool {
+	if _, err := os.Stat(fmt.Sprintf("%s/fail.txt", c.pdf.workDir)); err == nil {
+		return true
+	}
+	return false
+}
+
+func (c *clientContext) isInProgress() bool {
+	if _, err := os.Stat(fmt.Sprintf("%s/progress.txt", c.pdf.workDir)); err == nil {
+		return true
+	}
+	return false
+}
+
 func (c *clientContext) progressInValidState() bool {
 	// valid states being: { in progress, done, failed }
 
@@ -349,15 +381,15 @@ func (c *clientContext) progressInValidState() bool {
 		return false
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/done.txt", c.pdf.workDir)); err == nil {
+	if ok := c.isDone(); ok == true {
 		return true
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/fail.txt", c.pdf.workDir)); err == nil {
+	if ok := c.isFailed(); ok == true {
 		return true
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/progress.txt", c.pdf.workDir)); err == nil {
+	if ok := c.isInProgress(); ok == true {
 		// at this point, there is the potential for an in-progress generation to
 		// have crashed without creating a done.txt or fail.txt file.  we ignore
 		// this possibility for now, and just assume the process is chugging along.
@@ -367,8 +399,7 @@ func (c *clientContext) progressInValidState() bool {
 	// the directory might contain other files such as image/pdf data,
 	// but no need to keep it if we don't know what state it's in.
 	// just remove it.
-
-	if err := os.RemoveAll(c.pdf.workDir); err != nil {
+	if err := c.removeWorkDir(3, 5); err != nil {
 		c.info("failed to remove work dir [%s]: %s", c.pdf.workDir, err.Error())
 	}
 
@@ -469,7 +500,7 @@ func deleteHandler(ctx *gin.Context) {
 	c.respondString(http.StatusOK, "DELETED")
 }
 
-func (c *clientContext) removeWorkDir(maxAttempts int, waitBetween int) {
+func (c *clientContext) removeWorkDir(maxAttempts int, waitBetween int) error {
 	// tries to remove the work directory, with arithmetic backoff retry logic.
 	// total time before giving up in worst case is:
 	// seconds = waitBetween * (maxAttempts * (maxAttempts + 1) / 2)
@@ -487,11 +518,12 @@ func (c *clientContext) removeWorkDir(maxAttempts int, waitBetween int) {
 		} else {
 			// we are done
 			c.info("delete attempt %d/%d for [%s] succeeded", i+1, maxAttempts, c.pdf.workDir)
-			return
+			return nil
 		}
 
 		wait += waitBetween
 	}
 
 	c.err("delete FAILED for [%s]: max attempts reached", c.pdf.workDir)
+	return errors.New("max attempts reached")
 }

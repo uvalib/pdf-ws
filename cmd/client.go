@@ -52,7 +52,7 @@ func (c *clientContext) init(ctx *gin.Context) {
 	c.req.embed = c.ctx.Query("embed")
 
 	c.pdf.subDir = c.req.pid
-	c.pdf.workSubDir = c.getWorkSubDir(c.pdf.subDir, c.req.unit, c.req.token)
+	c.pdf.workSubDir = getWorkSubDir(c.pdf.subDir, c.req.unit, c.req.token)
 	c.pdf.workDir = fmt.Sprintf("%s/%s", config.storageDir.value, c.pdf.workSubDir)
 
 	c.pdf.embed = true
