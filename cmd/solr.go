@@ -65,10 +65,10 @@ func (c *clientContext) solrGetInfo() error {
 		return fmt.Errorf("failed to unmarshal solr response: [%s]", buf)
 	}
 
-	c.info("status                 : [%d]", solr.ResponseHeader.Status)
-	c.info("numFound               : [%d]", solr.Response.NumFound)
-	c.info("start                  : [%d]", solr.Response.Start)
-	c.info("len(docs)              : [%d]", len(solr.Response.Docs))
+	c.info("status              : %d", solr.ResponseHeader.Status)
+	c.info("numFound            : %d", solr.Response.NumFound)
+	c.info("start               : %d", solr.Response.Start)
+	c.info("len(docs)           : %d", len(solr.Response.Docs))
 
 	if solr.Response.NumFound == 0 || len(solr.Response.Docs) == 0 {
 		c.warn("no solr record found: numFound = %d, len(docs) = %d", solr.Response.NumFound, len(solr.Response.Docs))

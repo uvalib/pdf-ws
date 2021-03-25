@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -53,7 +52,7 @@ func (c *clientContext) init(ctx *gin.Context) {
 	c.req.embed = c.ctx.Query("embed")
 
 	c.pdf.subDir = c.req.pid
-	c.pdf.workSubDir = getWorkSubDir(c.pdf.subDir, c.req.unit, c.req.token)
+	c.pdf.workSubDir = c.getWorkSubDir(c.pdf.subDir, c.req.unit, c.req.token)
 	c.pdf.workDir = fmt.Sprintf("%s/%s", config.storageDir.value, c.pdf.workSubDir)
 
 	c.pdf.embed = true
@@ -88,23 +87,6 @@ func (c *clientContext) warn(format string, args ...interface{}) {
 
 func (c *clientContext) err(format string, args ...interface{}) {
 	c.log("ERROR: "+format, args...)
-}
-
-func getWorkSubDir(pid, unit, token string) string {
-	subDir := pid
-
-	switch {
-	case token != "":
-		subDir = token
-
-	case unit != "":
-		unitID, _ := strconv.Atoi(unit)
-		if unitID > 0 {
-			subDir = fmt.Sprintf("%s/%d", pid, unitID)
-		}
-	}
-
-	return subDir
 }
 
 func (c *clientContext) logRequest() {

@@ -59,6 +59,17 @@ func generateHandler(ctx *gin.Context) {
 		c.warn("generating PDF without a cover page in directory: %s", c.pdf.workDir)
 	}
 
+	// Make sure the work directory exists, AND has something recognized by progressInValidState()
+	// in case status endpoint is called before everything is set up and in a good state
+	if err := os.MkdirAll(c.pdf.workDir, 0755); err != nil {
+		c.err("failed to creeate working directory [%s]: %s", c.pdf.workDir, err.Error())
+		c.respondString(http.StatusInternalServerError, "ERROR: failed to initialize PDF process")
+		return
+	}
+
+	// fudge some numbers for a 0% progress
+	c.updateProgress(0, -1)
+
 	// kick the lengthy PDF generation off in a go routine
 	go c.generatePdf()
 
@@ -230,15 +241,13 @@ func (c *clientContext) getCoverPageArgs() []string {
  * use jp2 or archived tif files to generate a multipage PDF for a PID
  */
 func (c *clientContext) generatePdf() {
-	// Make sure the work directory exists
-	os.MkdirAll(c.pdf.workDir, 0777)
-
 	// initialize progress reporting:
 	// steps include each page download, plus a final conversion step
 	// future enhancement: each page download, plus each page as processed by imagemagick (convert -monitor)
 
 	var steps = len(c.pdf.ts.Pages) + 1
 	var step = 0
+	c.updateProgress(step, steps)
 
 	start := time.Now()
 

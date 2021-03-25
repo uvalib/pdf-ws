@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -56,6 +57,23 @@ func firstElementOf(s []string) string {
 	}
 
 	return val
+}
+
+func (c *clientContext) getWorkSubDir(pid, unit, token string) string {
+	subDir := pid
+
+	switch {
+	case token != "":
+		subDir = token
+
+	case unit != "":
+		unitID, _ := strconv.Atoi(unit)
+		if unitID > 0 {
+			subDir = fmt.Sprintf("%s/%d", pid, unitID)
+		}
+	}
+
+	return subDir
 }
 
 //
