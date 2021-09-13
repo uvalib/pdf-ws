@@ -19,50 +19,64 @@ type tsGenericPidInfo struct {
 	Filename string `json:"filename,omitempty"`
 }
 
+type tsResult struct {
+	status int   // http status code
+	err    error // error, if any
+}
+
 // holds metadata pid/page info
 type tsPidInfo struct {
 	Pid   tsGenericPidInfo
 	Pages []tsGenericPidInfo
 }
 
-func getTsURL(api, pid, unit string) string {
+func (c *clientContext) getTsURL(api, pid, unit string) string {
 	url := fmt.Sprintf("%s%s/%s", config.tsAPIHost.value, api, pid)
 	if unit != "" {
 		url = fmt.Sprintf("%s?unit=%s", url, unit)
 	}
+	c.info("tracksys url: %s", url)
 	return url
 }
 
-func (c *clientContext) tsGetPagesFromManifest() ([]tsGenericPidInfo, error) {
-	url := getTsURL("/api/manifest", c.req.pid, c.req.unit)
+func (c *clientContext) tsGetPagesFromManifest() ([]tsGenericPidInfo, tsResult) {
+	var tsPages []tsGenericPidInfo
+
+	url := c.getTsURL("/api/manifest", c.req.pid, c.req.unit)
 
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		c.err("NewRequest() failed: %s", reqErr.Error())
-		return nil, errors.New("failed to create tracksys manifest request")
+		return tsPages, tsResult{status: http.StatusInternalServerError, err: errors.New("failed to create tracksys manifest request")}
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
 		c.err("client.Do() failed: %s", resErr.Error())
-		return nil, errors.New("failed to receive tracksys manifest response")
+		return tsPages, tsResult{status: http.StatusInternalServerError, err: errors.New("failed to receive tracksys manifest response")}
 	}
 
 	defer res.Body.Close()
+
+	// check for known scenarios before attempting to parse as json
+
+	buf, _ := ioutil.ReadAll(res.Body)
+	str := string(buf)
+	if str == "no masterfiles found" {
+		c.warn("no masterfiles found for pid: [%s]", c.req.pid)
+		return tsPages, tsResult{status: http.StatusNotFound, err: errors.New("no pages found for this pid")}
+	}
 
 	// parse json from body
 
 	var allPages []tsGenericPidInfo
 
-	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &allPages); jErr != nil {
 		c.err("Unmarshal() failed: %s", jErr.Error())
-		return nil, fmt.Errorf("failed to unmarshal tracksys manifest response: [%s]", buf)
+		return tsPages, tsResult{status: http.StatusInternalServerError, err: fmt.Errorf("failed to unmarshal tracksys manifest response: [%s]", buf)}
 	}
 
 	// filter pages, if requested
-
-	var tsPages []tsGenericPidInfo
 
 	if c.req.pages == "" {
 		tsPages = allPages
@@ -86,22 +100,22 @@ func (c *clientContext) tsGetPagesFromManifest() ([]tsGenericPidInfo, error) {
 		c.info("filtered pages from %d to %d", len(allPages), len(tsPages))
 	}
 
-	return tsPages, nil
+	return tsPages, tsResult{status: http.StatusOK}
 }
 
-func (c *clientContext) tsGetPidInfo() error {
-	url := getTsURL("/api/pid", c.req.pid, "")
+func (c *clientContext) tsGetPidInfo() tsResult {
+	url := c.getTsURL("/api/pid", c.req.pid, "")
 
 	req, reqErr := http.NewRequest("GET", url, nil)
 	if reqErr != nil {
 		c.err("NewRequest() failed: %s", reqErr.Error())
-		return errors.New("failed to create tracksys pid request")
+		return tsResult{status: http.StatusInternalServerError, err: errors.New("failed to create tracksys pid request")}
 	}
 
 	res, resErr := client.Do(req)
 	if resErr != nil {
 		c.err("client.Do() failed: %s", resErr.Error())
-		return errors.New("failed to receive tracksys pid response")
+		return tsResult{status: http.StatusInternalServerError, err: errors.New("failed to receive tracksys pid response")}
 	}
 
 	defer res.Body.Close()
@@ -113,7 +127,7 @@ func (c *clientContext) tsGetPidInfo() error {
 	buf, _ := ioutil.ReadAll(res.Body)
 	if jErr := json.Unmarshal(buf, &ts.Pid); jErr != nil {
 		c.err("Unmarshal() failed: %s", jErr.Error())
-		return fmt.Errorf("failed to unmarshal pid response: [%s]", buf)
+		return tsResult{status: http.StatusInternalServerError, err: fmt.Errorf("failed to unmarshal pid response: [%s]", buf)}
 	}
 	c.info("Type            : [%s]", ts.Pid.Type)
 
@@ -122,15 +136,14 @@ func (c *clientContext) tsGetPidInfo() error {
 		ts.Pages = []tsGenericPidInfo{ts.Pid}
 
 	case strings.Contains(ts.Pid.Type, "metadata") || strings.Contains(ts.Pid.Type, "component"):
-		tsPages, err := c.tsGetPagesFromManifest()
-		if err != nil {
-			c.err("tsGetPagesFromManifest() failed: [%s]", err.Error())
-			return err
+		tsPages, res := c.tsGetPagesFromManifest()
+		if res.err != nil {
+			return res
 		}
 		ts.Pages = tsPages
 
 	default:
-		return fmt.Errorf("unhandled PID type: [%s]", ts.Pid.Type)
+		return tsResult{status: http.StatusInternalServerError, err: fmt.Errorf("unhandled PID type: [%s]", ts.Pid.Type)}
 	}
 
 	switch len(ts.Pages) {
@@ -146,5 +159,5 @@ func (c *clientContext) tsGetPidInfo() error {
 
 	c.pdf.ts = &ts
 
-	return nil
+	return tsResult{status: http.StatusOK}
 }

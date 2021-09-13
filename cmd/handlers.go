@@ -57,9 +57,17 @@ func generateHandler(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.tsGetPidInfo(); err != nil {
-		c.err("tracksys API error: %s", err.Error())
-		c.respondString(http.StatusNotFound, fmt.Sprintf("ERROR: Could not retrieve PID info: %s", err.Error()))
+	if res := c.tsGetPidInfo(); res.err != nil {
+		switch res.status {
+		case http.StatusNotFound:
+			c.warn("tracksys API: %s", res.err.Error())
+			c.respondString(res.status, fmt.Sprintf("WARNING: Could not retrieve PID info: %s", res.err.Error()))
+
+		default:
+			c.err("tracksys API: %s", res.err.Error())
+			c.respondString(res.status, fmt.Sprintf("ERROR: Could not retrieve PID info: %s", res.err.Error()))
+		}
+
 		return
 	}
 
@@ -71,7 +79,7 @@ func generateHandler(ctx *gin.Context) {
 	// Make sure the work directory exists, AND has something recognized by progressInValidState()
 	// in case status endpoint is called before everything is set up and in a good state
 	if err := os.MkdirAll(c.pdf.workDir, 0755); err != nil {
-		c.err("failed to creeate working directory [%s]: %s", c.pdf.workDir, err.Error())
+		c.err("failed to create working directory [%s]: %s", c.pdf.workDir, err.Error())
 		c.respondString(http.StatusInternalServerError, "ERROR: failed to initialize PDF process")
 		return
 	}
