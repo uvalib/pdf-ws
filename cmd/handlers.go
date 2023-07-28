@@ -350,9 +350,6 @@ func (c *clientContext) generatePdf() {
 
 	c.info("DONE: %d pages processed in %0.2f seconds (%0.2f seconds/page)",
 		len(jpgFiles), elapsed, elapsed/float64(len(jpgFiles)))
-
-	// Cleanup intermediate jpgFiles
-	exec.Command("rm", jpgFiles...).Run()
 }
 
 func (c *clientContext) isDone() bool {

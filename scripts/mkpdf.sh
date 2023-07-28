@@ -219,7 +219,7 @@ function create_partial_pdfs ()
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -resize "x${hmax}" -density "$hdpi" "${@:$ndx:$len}" "$pdf" \
+		convert -resize "x${hmax}" -density "$hdpi" -units pixelsperinch "${@:$ndx:$len}" "$pdf" \
 			|| die "partial pdf convert failed"
 	done
 }
@@ -246,7 +246,7 @@ function do_cleanup ()
 {
 	echo "cleaning up..."
 
-	rm -f "${pdfs[@]}"
+	rm -f "${pdfs[@]}" "$@"
 }
 
 ### parse command line
@@ -299,6 +299,6 @@ fi
 
 merge_partial_pdfs
 
-do_cleanup
+do_cleanup "$@"
 
 exit 0
