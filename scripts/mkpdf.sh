@@ -235,6 +235,7 @@ function merge_partial_pdfs ()
 		-q \
 		-dBATCH \
 		-dNOPAUSE \
+		-dPDFSETTINGS=/ebook \
 		-sDEVICE=pdfwrite \
 		-sOutputFile="$outpdf" \
 		"${pdfs[@]}" \
