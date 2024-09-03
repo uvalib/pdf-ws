@@ -282,7 +282,13 @@ func (c *clientContext) generatePdf() {
 		}
 
 		// get image from iiif
-		jpgFile, jpgErr := c.downloadJpgFromIiif(page.Pid)
+		pid := page.Pid
+		if page.ClonedFrom.Pid != "" {
+			c.info("using original pid %s for cloned pid %s", page.ClonedFrom.Pid, page.Pid)
+			pid = page.ClonedFrom.Pid
+		}
+
+		jpgFile, jpgErr := c.downloadJpgFromIiif(pid)
 		if jpgErr != nil {
 			c.warn("no image for %s found on IIIF server; continuing", page.Pid)
 			continue

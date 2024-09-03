@@ -12,10 +12,17 @@ import (
 
 // the line between metadata/masterfile fields is getting blurry; just lump them together
 type tsGenericPidInfo struct {
+	ID         int         `json:"id,omitempty"`
+	Pid        string      `json:"pid,omitempty"`
+	Type       string      `json:"type,omitempty"`
+	Title      string      `json:"title,omitempty"`
+	Filename   string      `json:"filename,omitempty"`
+	ClonedFrom tsCloneInfo `json:"cloned_from,omitempty"`
+}
+
+type tsCloneInfo struct {
 	ID       int    `json:"id,omitempty"`
 	Pid      string `json:"pid,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Title    string `json:"title,omitempty"`
 	Filename string `json:"filename,omitempty"`
 }
 
