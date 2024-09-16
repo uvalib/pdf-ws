@@ -18,7 +18,13 @@ RUN make rebuild-docker GIT_COMMIT="$GIT_COMMIT"
 FROM public.ecr.aws/docker/library/alpine:3.20
 
 # update the packages
-RUN apk update && apk upgrade && apk add bash tzdata ca-certificates imagemagick msttcorefonts-installer curl && rm -rf /var/cache/apk/* && update-ms-fonts
+RUN apk update && apk upgrade && apk add bash tzdata ca-certificates msttcorefonts-installer curl && rm -rf /var/cache/apk/* && update-ms-fonts
+
+# image magick support
+RUN apk add fftw-double-libs fontconfig freetype ghostscript ghostscript-fonts lcms2 libbz2 libgcc libgomp libheif libjxl libltdl libraw libx11 libxext libxml2 openjpeg pango tiff zlib libwebpmux libwebpdemux
+COPY distro/bin/magick /usr/local/bin
+RUN ln -s /usr/local/bin/magick /usr/local/bin/convert && ln -s /usr/local/bin/magick /usr/local/bin/identify
+COPY distro/etc/ /usr/local/etc
 
 # Create the run user and group
 RUN addgroup webservice && adduser webservice -G webservice -D
@@ -28,7 +34,7 @@ ENV TZ=UTC
 RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Specify home 
-ENV APP_HOME /pdf-ws
+ENV APP_HOME=/pdf-ws
 WORKDIR $APP_HOME
 
 # Create necessary directories
