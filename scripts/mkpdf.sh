@@ -250,7 +250,13 @@ function do_cleanup ()
 	rm -f "${pdfs[@]}" "$@"
 }
 
-### parse command line
+### log and parse command line
+
+printf "command line: %s" "$0"
+for arg in "$@"; do
+	printf " \"%s\"" "$arg"
+done
+echo
 
 while [ "$#" -gt "0" ]; do
 	arg="$1"
