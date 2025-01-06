@@ -43,7 +43,7 @@ RUN chown -R webservice $APP_HOME && chgrp -R webservice $APP_HOME
 
 # port and run command
 EXPOSE 8088
-ENTRYPOINT ["scripts/entry.sh"]
+CMD ["scripts/entry.sh"]
 
 # Move in necessary assets
 COPY package/data/container_bash_profile /home/webservice/.profile
