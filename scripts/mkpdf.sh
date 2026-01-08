@@ -17,6 +17,10 @@ footer=""
 pdfs=()
 count="0"
 
+# imagemagick definitions
+CONVERT="magick"
+IDENTIFY="magick identify"
+
 function die ()
 {
 	echo "error: $@"
@@ -58,7 +62,7 @@ function create_section ()
 
 	case $mode in
 		text )
-			convert \
+			$CONVERT \
 				-size "${capwidth}x" \
 				-gravity center \
 				-fill black \
@@ -72,7 +76,7 @@ function create_section ()
 			;;
 
 		logo )
-			convert \
+			$CONVERT \
 				-page "+${logoinset}+${yoffset}" \
 				"$data" \
 				logo.miff \
@@ -85,7 +89,7 @@ function create_section ()
 		return
 	fi
 
-	identify -format "%h" "$file"
+	$IDENTIFY -format "%h" "$file"
 }
 
 function create_cover_image ()
@@ -100,7 +104,7 @@ function create_cover_image ()
 	capmargin="250"
 	capwidth="$(expr "$width" - 2 \* "$capmargin")"
 
-	logowidth="$(identify -format "%w" "$logo")"
+	logowidth="$($IDENTIFY -format "%w" "$logo")"
 	logoinset="$(expr \( "$width" - "$logowidth" \) / 2)"
 
 	pointreg="50"
@@ -135,7 +139,7 @@ function create_cover_image ()
 	[ "$yoffset" -gt "$height" ] && height="$yoffset"
 
 	cat header.miff logo.miff title.miff author.miff footer.miff \
-		| convert -size "${width}x${height}" xc:white - -flatten cover.png \
+		| $CONVERT -size "${width}x${height}" xc:white - -flatten cover.png \
 		|| die "cover page convert failed"
 
 	rm -f *.miff
@@ -145,7 +149,7 @@ function determine_output_resolution ()
 {
 	echo "determining image resolution..."
 
-	read -a hstats < <(identify "$@" 2>/dev/null | awk '
+	read -a hstats < <($IDENTIFY "$@" 2>/dev/null | awk '
 BEGIN {
 	sum = 0
 	sumsquares = 0
@@ -219,7 +223,7 @@ function create_partial_pdfs ()
 
 		printf "[%3d/%3d] converting %3d images (%3d-%3d) into pdf: [%s]\n" "$i" "$chunks" "$len" "$ndx" "$end" "$pdf"
 
-		convert -resize "x${hmax}" -density "$hdpi" -units pixelsperinch "${@:$ndx:$len}" "$pdf" \
+		$CONVERT "${@:$ndx:$len}" -resize "x${hmax}" -density "$hdpi" -units pixelsperinch "$pdf" \
 			|| die "partial pdf convert failed"
 	done
 }
@@ -296,7 +300,7 @@ if [ "$cover" = "y" ]; then
 
 	create_cover_image
 
-	create_partial_pdfs "cover.png" "$@"
+	create_partial_pdfs "$@" "cover.png"
 else
 	# no cover page
 	determine_output_resolution "$@"
